@@ -16,7 +16,6 @@
 #include "PluginManager.h"
 #include "FileFilterHelper.h"
 #include "DirCmpReport.h"
-#include "DirCompProgressBar.h"
 #include "IMDITab.h"
 #include "IDirDoc.h"
 
@@ -28,6 +27,7 @@ class DirDocFilterByExtension;
 class CTempPathContext;
 struct FileActionItem;
 struct FileLocation;
+class DirCompProgressBar;
 
 /////////////////////////////////////////////////////////////////////////////
 // CDirDoc document
@@ -65,6 +65,7 @@ public:
 	CString GetTooltipString() const;
 	protected:
 	virtual BOOL OnNewDocument();
+	virtual void OnCloseDocument();
 	virtual BOOL SaveModified();
 	//}}AFX_VIRTUAL
 
@@ -77,7 +78,7 @@ public:
 	bool GetReadOnly(int nIndex) const;
 	const bool *GetReadOnly(void) const;
 	void SetReadOnly(int nIndex, bool bReadOnly);
-	String GetReportFile() const { return m_sReportFile; }
+	const String& GetReportFile() const { return m_sReportFile; }
 	void SetReportFile(const String& sReportFile) { m_sReportFile = sReportFile; }
 	const std::vector<String>& GetHiddenItems() const { return m_pCtxt->m_vCurrentlyHiddenItems; }
 	void SetHiddenItems(const std::vector<String>& hiddenItems) { m_pCtxt->m_vCurrentlyHiddenItems = hiddenItems; }
@@ -132,6 +133,8 @@ protected:
 	void InitDiffContext(CDiffContext *pCtxt);
 	void LoadLineFilterList(CDiffContext *pCtxt);
 	void LoadSubstitutionFiltersList(CDiffContext* pCtxt);
+	void CheckFilter();
+	DirCompProgressBar* GetCompProgressBar();
 
 	// Generated message map functions
 	//{{AFX_MSG(CDirDoc)
@@ -158,9 +161,9 @@ private:
 	bool m_bGeneratingReport;
 	std::unique_ptr<DirCmpReport> m_pReport;
 	FileFilterHelper m_fileHelper; /**< File filter helper */
-	std::unique_ptr<DirCompProgressBar> m_pCmpProgressBar;
 	clock_t m_compareStart; /**< Starting process time of the compare */
 	clock_t m_elapsed; /**< Elapsed time of the compare */
+	std::shared_ptr<TempFile> m_tempFile; /**< Temporary file for clipboard copy */
 };
 
 /**

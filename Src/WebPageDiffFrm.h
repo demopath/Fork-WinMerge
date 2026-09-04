@@ -56,8 +56,9 @@ public:
 	int UpdateLastCompareResult();
 	void UpdateAutoPaneResize();
 	void UpdateSplitter();
-	bool GenerateReport(const String& sFileName) const;
-	bool GenerateReport(const String& sFileName, std::function<void (bool)> callback) const;
+	bool GenerateReport(ReportContext& reportContext) const;
+	bool GenerateReport(ReportContext& context, std::function<void (bool)> callback) const;
+	IMergeDoc::DocumentType GetDocumentType() const override { return IMergeDoc::DocumentType::WebPage; }
 	const PackingInfo* GetUnpacker() const override { return &m_infoUnpacker; };
 	void SetUnpacker(const PackingInfo* infoUnpacker) override { if (infoUnpacker) m_infoUnpacker = *infoUnpacker; };
 	const PrediffingInfo* GetPrediffer() const override { return nullptr; };
@@ -71,8 +72,10 @@ public:
 	IMergeDoc::FileChange IsFileChangedOnDisk(int pane) const;
 	void CheckFileChanged(void) override;
 	String GetDescription(int pane) const override { return m_strDesc[pane]; }
+	bool IsModified() const override { return false; }
 	static bool IsLoadable();
 	static bool MatchURLPattern(const String& url);
+	IHeaderBar* GetHeaderInterface() override { return &m_wndFilePathBar; }
 
 // Attributes
 protected:
@@ -194,10 +197,10 @@ protected:
 	afx_msg void OnWebSyncEvent(UINT nID);
 	afx_msg void OnUpdateWebSyncEvent(CCmdUI* pCmdUI);
 	afx_msg void OnWebClear(UINT nID);
-	afx_msg void OnToolsGenerateReport();
 	afx_msg void OnRefresh();
 	afx_msg void OnSetFocus(CWnd *pNewWnd);
 	afx_msg void OnHelp();
+    afx_msg void OnSettingChange(UINT uFlags, LPCTSTR lpszSection);
 	//}}AFX_MSG
 	DECLARE_MESSAGE_MAP()
 };

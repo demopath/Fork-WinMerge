@@ -187,6 +187,13 @@ struct IImgMergeWindow
 	virtual void SetBlinkInterval(int interval) = 0;
 	virtual int GetOverlayAnimationInterval() const = 0;
 	virtual void SetOverlayAnimationInterval(int interval) = 0;
+	virtual bool IsDarkBackgroundEnabled() const = 0;
+	virtual void SetDarkBackgroundEnabled(bool enabled) = 0;
+	virtual int GetLastErrorCode() const = 0;
+	virtual bool GetPreferWICDecoder() const = 0;
+	virtual void SetPreferWICDecoder(bool preferWICDecoder) = 0;
+	virtual int  GetSplitterPosition() const = 0;
+	virtual void SetSplitterPosition(int position) = 0;
 };
 
 struct IImgToolWindow

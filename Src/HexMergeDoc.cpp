@@ -27,6 +27,9 @@
 #include "SyntaxColors.h"
 #include "Merge.h"
 #include "MainFrm.h"
+#include "MergeLogger.h"
+#include "MergeTextFormatter.h"
+#include "PluginMenu.h"
 
 #ifdef _DEBUG
 #define new DEBUG_NEW
@@ -41,7 +44,7 @@ static int Try(HRESULT hr, UINT type = MB_OKCANCEL|MB_ICONSTOP);
  */
 static int Try(HRESULT hr, UINT type)
 {
-	return hr ? CInternetException(hr).ReportError(type) : 0;
+	return FAILED(hr) ? CInternetException(hr).ReportError(type) : 0;
 }
 
 /////////////////////////////////////////////////////////////////////////////
@@ -64,8 +67,8 @@ BEGIN_MESSAGE_MAP(CHexMergeDoc, CDocument)
 	ON_UPDATE_COMMAND_UI(ID_FILE_SAVE_MIDDLE, OnUpdateFileSaveMiddle)
 	ON_UPDATE_COMMAND_UI(ID_FILE_SAVE_RIGHT, OnUpdateFileSaveRight)
 	ON_COMMAND(ID_RESCAN, OnFileReload)
-	ON_COMMAND_RANGE(ID_MERGE_COMPARE_TEXT, ID_MERGE_COMPARE_WEBPAGE, OnFileRecompareAs)
-	ON_UPDATE_COMMAND_UI_RANGE(ID_MERGE_COMPARE_TEXT, ID_MERGE_COMPARE_WEBPAGE, OnUpdateFileRecompareAs)
+	ON_COMMAND_RANGE(ID_MERGE_COMPARE_TEXT, ID_MERGE_COMPARE_FOLDER, OnFileRecompareAs)
+	ON_UPDATE_COMMAND_UI_RANGE(ID_MERGE_COMPARE_TEXT, ID_MERGE_COMPARE_FOLDER, OnUpdateFileRecompareAs)
 	// [View] menu
 	ON_COMMAND(ID_VIEW_ZOOMIN, OnViewZoomIn)
 	ON_COMMAND(ID_VIEW_ZOOMOUT, OnViewZoomOut)
@@ -167,95 +170,27 @@ int CHexMergeDoc::UpdateLastCompareResult()
  */
 bool CHexMergeDoc::PromptAndSaveIfNeeded(bool bAllowCancel)
 {
-	bool bLModified = false, bMModified = false, bRModified = false;
+	bool bModified[3] = { false, false, false };
+	String paths[3] = { };
 
-	if (m_nBuffers == 3)
+	for (int i = 0; i < m_nBuffers; ++i)
 	{
-		bLModified = m_pView[0]->GetModified();
-		bMModified = m_pView[1]->GetModified();
-		bRModified = m_pView[2]->GetModified();
+		bModified[i] = m_pView[i]->GetModified();
+		paths[i] = m_filePaths.GetPath(i);
 	}
-	else
-	{
-		bLModified = m_pView[0]->GetModified();
-		bRModified = m_pView[1]->GetModified();
-	}
-	if (!bLModified && !bMModified && !bRModified)
+	if (!bModified[0] && !bModified[1] && !bModified[2])
 		 return true;
 
-	const String &pathLeft = m_filePaths.GetLeft();
-	const String &pathMiddle = m_filePaths.GetMiddle();
-	const String &pathRight = m_filePaths.GetRight();
-
-	bool result = true;
-	bool bLSaveSuccess = false, bMSaveSuccess = false, bRSaveSuccess = false;
-
-	SaveClosingDlg dlg;
-	dlg.DoAskFor(bLModified, bMModified, bRModified);
-	if (!bAllowCancel)
-		dlg.m_bDisableCancel = true;
-	if (!pathLeft.empty())
-		dlg.m_sLeftFile = m_strSaveAsPath.empty() ? pathLeft : m_strSaveAsPath;
-	else
-		dlg.m_sLeftFile = m_strSaveAsPath.empty() ? m_strDesc[0] : m_strSaveAsPath;
-	if (m_nBuffers == 3)
-	{
-		if (!pathMiddle.empty())
-			dlg.m_sMiddleFile = m_strSaveAsPath.empty() ? pathMiddle : m_strSaveAsPath;
-		else
-			dlg.m_sMiddleFile = m_strSaveAsPath.empty() ? m_strDesc[1] : m_strSaveAsPath;
-	}
-	if (!pathRight.empty())
-		dlg.m_sRightFile = m_strSaveAsPath.empty() ? pathRight : m_strSaveAsPath;
-	else
-		dlg.m_sRightFile = m_strSaveAsPath.empty() ? m_strDesc[1] : m_strSaveAsPath;
-
-	if (dlg.DoModal() == IDOK)
-	{
-		if (bLModified)
-		{
-			if (dlg.m_leftSave == SaveClosingDlg::SAVECLOSING_SAVE)
-			{
-				bLSaveSuccess = DoFileSave(0);
-				if (!bLSaveSuccess)
-					result = false;
-			}
-			else
-			{
-				m_pView[0]->SetSavePoint();
-			}
-		}
-		if (bMModified)
-		{
-			if (dlg.m_middleSave == SaveClosingDlg::SAVECLOSING_SAVE)
-			{
-				bMSaveSuccess = DoFileSave(1);
-				if (!bMSaveSuccess)
-					result = false;
-			}
-			else
-			{
-				m_pView[1]->SetSavePoint();
-			}
-		}
-		if (bRModified)
-		{
-			if (dlg.m_rightSave == SaveClosingDlg::SAVECLOSING_SAVE)
-			{
-				bRSaveSuccess = DoFileSave(m_nBuffers - 1);
-				if (!bRSaveSuccess)
-					result = false;
-			}
-			else
-			{
-				m_pView[m_nBuffers - 1]->SetSavePoint();
-			}
-		}
-	}
-	else
-	{	
-		result = false;
-	}
+	bool result = SaveClosingDlg::ShowAndSave(
+		m_nBuffers,
+		bModified,
+		paths,
+		m_strDesc,
+		m_strSaveAsPath,
+		bAllowCancel,
+		[this](int i) { return DoFileSave(i); },
+		[this](int i) { m_pView[i]->SetSavePoint(); }
+	);
 
 	return result;
 }
@@ -333,7 +268,7 @@ bool CHexMergeDoc::DoFileSave(int nBuffer)
 							compareResult == 0);
 				}
 
-				CMergeFrameCommon::LogFileSaved(m_filePaths[nBuffer]);
+				MergeLogger::LogFileSaved(m_filePaths[nBuffer]);
 			}
 		}
 	}
@@ -369,7 +304,7 @@ bool CHexMergeDoc::DoFileSaveAs(int nBuffer, bool packing)
 		UpdateLastCompareResult();
 		UpdateHeaderPath(nBuffer);
 
-		CMergeFrameCommon::LogFileSaved(m_filePaths[nBuffer]);
+		MergeLogger::LogFileSaved(m_filePaths[nBuffer]);
 
 		return true;
 	}
@@ -482,7 +417,7 @@ bool CHexMergeDoc::CloseNow()
  */
 CString CHexMergeDoc::GetTooltipString() const
 {
-	return CMergeFrameCommon::GetTooltipString(*this).c_str();
+	return MergeTextFormatter::GetTooltipString(*this).c_str();
 }
 
 /**
@@ -519,7 +454,7 @@ HRESULT CHexMergeDoc::LoadOneFile(int index, const tchar_t* filename, bool readO
  */
 bool CHexMergeDoc::OpenDocs(int nFiles, const FileLocation fileloc[], const bool bRO[], const String strDesc[])
 {
-	CMergeFrameCommon::LogComparisonStart(nFiles, fileloc, strDesc, &m_infoUnpacker, nullptr);
+	MergeLogger::LogComparisonStart(nFiles, fileloc, strDesc, &m_infoUnpacker, nullptr);
 
 	CWaitCursor waitstatus;
 	CHexMergeFrame *pf = GetParentFrame();
@@ -553,16 +488,16 @@ bool CHexMergeDoc::OpenDocs(int nFiles, const FileLocation fileloc[], const bool
 
 		for (nBuffer = 0; nBuffer < nFiles; nBuffer++)
 			UpdateHeaderPath(nBuffer);
+
+		GetMainFrame()->WatchDocuments(this);
+
+		MergeLogger::LogComparisonCompleted(*this);
 	}
 	else
 	{
 		// Use verify macro to trap possible error in debug.
 		VERIFY(pf->DestroyWindow());
 	}
-
-	GetMainFrame()->WatchDocuments(this);
-
-	CMergeFrameCommon::LogComparisonCompleted(*this);
 
 	return bSucceeded;
 }
@@ -582,14 +517,16 @@ void CHexMergeDoc::MoveOnLoad(int nPane, int)
 		m_pView[0]->SendMessage(WM_COMMAND, ID_FIRSTDIFF);
 }
 
-void CHexMergeDoc::ChangeFile(int nBuffer, const String& path, int nLineIndex)
+bool CHexMergeDoc::ChangeFile(int nBuffer, const String& path, const String& description, int nLineIndex)
 {
 	if (!PromptAndSaveIfNeeded(true))
-		return;
+		return false;
 	m_nBufferType[nBuffer] = BUFFERTYPE::NORMAL;
 	m_strDesc[nBuffer].clear();
 	m_pView[nBuffer]->ClearUndoRecords();
-	LoadOneFile(nBuffer, path.c_str(), m_pView[nBuffer]->GetReadOnly(), _T(""));
+	LoadOneFile(nBuffer, path.c_str(), m_pView[nBuffer]->GetReadOnly(), description);
+	UpdateHeaderPath(nBuffer);
+	return true;
 }
 
 void CHexMergeDoc::CheckFileChanged(void)
@@ -631,7 +568,8 @@ void CHexMergeDoc::UpdateHeaderPath(int pane)
 	}
 	if (m_pView[pane]->GetModified())
 		sText.insert(0, _T("* "));
-	pf->GetHeaderInterface()->SetText(pane, sText);
+	pf->GetHeaderInterface()->SetCaption(pane, sText);
+	pf->GetHeaderInterface()->SetPath(pane, m_filePaths.GetPath(pane));
 
 	SetTitle(nullptr);
 }
@@ -655,20 +593,19 @@ static void Customize(IHexEditorWindow::Settings *settings)
 static void Customize(IHexEditorWindow::Colors *colors)
 {
 	COptionsMgr *pOptionsMgr = GetOptionsMgr();
-	colors->iSelBkColorValue = RGB(224, 224, 224);
-	colors->iDiffBkColorValue = pOptionsMgr->GetInt(OPT_CLR_DIFF);
-	colors->iSelDiffBkColorValue = pOptionsMgr->GetInt(OPT_CLR_SELECTED_DIFF);
-	colors->iDiffTextColorValue = pOptionsMgr->GetInt(OPT_CLR_DIFF_TEXT);
-	if (colors->iDiffTextColorValue == 0xFFFFFFFF)
-		colors->iDiffTextColorValue = 0;
-	colors->iSelDiffTextColorValue = pOptionsMgr->GetInt(OPT_CLR_SELECTED_DIFF_TEXT);
-	if (colors->iSelDiffTextColorValue == 0xFFFFFFFF)
-		colors->iSelDiffTextColorValue = 0;
 	SyntaxColors *pSyntaxColors = theApp.GetMainSyntaxColors();
 	colors->iTextColorValue = pSyntaxColors->GetColor(COLORINDEX_NORMALTEXT);
 	colors->iBkColorValue = pSyntaxColors->GetColor(COLORINDEX_BKGND);
 	colors->iSelTextColorValue = pSyntaxColors->GetColor(COLORINDEX_SELTEXT);
 	colors->iSelBkColorValue = pSyntaxColors->GetColor(COLORINDEX_SELBKGND);
+	colors->iDiffBkColorValue = pOptionsMgr->GetInt(OPT_CLR_DIFF);
+	colors->iSelDiffBkColorValue = pOptionsMgr->GetInt(OPT_CLR_SELECTED_DIFF);
+	colors->iDiffTextColorValue = pOptionsMgr->GetInt(OPT_CLR_DIFF_TEXT);
+	if (colors->iDiffTextColorValue == 0xFFFFFFFF)
+		colors->iDiffTextColorValue = colors->iTextColorValue;
+	colors->iSelDiffTextColorValue = pOptionsMgr->GetInt(OPT_CLR_SELECTED_DIFF_TEXT);
+	if (colors->iSelDiffTextColorValue == 0xFFFFFFFF)
+		colors->iSelDiffTextColorValue = colors->iTextColorValue;
 }
 
 /**
@@ -698,7 +635,7 @@ void CHexMergeDoc::RefreshOptions()
  */
 void CHexMergeDoc::SetTitle(LPCTSTR lpszTitle)
 {
-	String sTitle = (lpszTitle != nullptr) ? lpszTitle : CMergeFrameCommon::GetTitleString(*this);
+	String sTitle = (lpszTitle != nullptr) ? lpszTitle : MergeTextFormatter::GetTitleString(*this);
 	CDocument::SetTitle(sTitle.c_str());
 	if (auto* pParentFrame = GetParentFrame())
 		pParentFrame->SetWindowText(sTitle.c_str());
@@ -958,10 +895,7 @@ void CHexMergeDoc::OnViewZoomNormal()
 void CHexMergeDoc::OnRefresh()
 {
 	if (UpdateLastCompareResult() == 0)
-	{
-		CMergeFrameCommon::ShowIdenticalMessage(m_filePaths, true,
-			[](const tchar_t* msg, UINT flags, UINT id) -> int { return AfxMessageBox(msg, flags, id); });
-	}
+		CMergeFrameCommon::ShowIdenticalMessage(m_filePaths, true);
 }
 
 void CHexMergeDoc::OnFileRecompareAs(UINT nID)
@@ -979,13 +913,13 @@ void CHexMergeDoc::OnFileRecompareAs(UINT nID)
 	}
 	if (ID_UNPACKERS_FIRST <= nID && nID <= ID_UNPACKERS_LAST)
 	{
-		infoUnpacker.SetPluginPipeline(CMainFrame::GetPluginPipelineByMenuId(nID, FileTransform::UnpackerEventNames, ID_UNPACKERS_FIRST));
+		infoUnpacker.SetPluginPipeline(PluginMenu::GetPluginPipelineByMenuId(&infoUnpacker, nID, FileTransform::UnpackerEventNames, ID_UNPACKERS_FIRST));
 		nID = GetOptionsMgr()->GetBool(OPT_PLUGINS_OPEN_IN_SAME_FRAME_TYPE) ? ID_MERGE_COMPARE_HEX : -ID_MERGE_COMPARE_HEX;
 	}
 
 	CloseNow();
 	GetMainFrame()->DoFileOrFolderOpen(&paths, dwFlags, strDesc, _T(""),
-		GetOptionsMgr()->GetBool(OPT_CMP_INCLUDE_SUBDIRS), nullptr, &infoUnpacker, nullptr, nID);
+		nullptr, &infoUnpacker, nullptr, nID);
 }
 
 void CHexMergeDoc::OnOpenWithUnpacker()
@@ -1000,7 +934,7 @@ void CHexMergeDoc::OnOpenWithUnpacker()
 		String strDesc[3] = { m_strDesc[0], m_strDesc[1], m_strDesc[2] };
 		CloseNow();
 		GetMainFrame()->DoFileOrFolderOpen(&paths, dwFlags, strDesc, _T(""),
-			GetOptionsMgr()->GetBool(OPT_CMP_INCLUDE_SUBDIRS), nullptr, &infoUnpacker, nullptr,
+		  nullptr, &infoUnpacker, nullptr,
 			GetOptionsMgr()->GetBool(OPT_PLUGINS_OPEN_IN_SAME_FRAME_TYPE) ? ID_MERGE_COMPARE_HEX : -ID_MERGE_COMPARE_HEX);
 	}
 }

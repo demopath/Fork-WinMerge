@@ -39,6 +39,15 @@ enum
 #endif
 };
 
+enum NORMFORM
+{
+	NormOther = 0,
+	NormC = 0x1,
+	NormD = 0x2,
+	NormKC = 0x5,
+	NormKD = 0x6
+};
+
 /** @brief Known Unicode encodings. */
 enum UNICODESET : char
 {
@@ -111,6 +120,7 @@ inline std::wstring toUTF16(const String& tstr)
 }
 
 void toUTF8(const String& tstr, std::string& u8str);
+std::string toUTF8(const tchar_t* tstr, size_t len);
 std::string toUTF8(const String& tstr);
 std::string toSystemCP(const std::string& str);
 std::string toSystemCP(const std::wstring& str);
@@ -130,5 +140,15 @@ int getDefaultCodepage();
 void setDefaultCodepage(int cp);
 
 bool EqualCodepages(int cp1, int cp2);
+
+String normalizeString(const String& str, NORMFORM form);
+String toUpper(const String& s);
+String toLower(const String& s);
+String toHalfWidth(const String& s);
+String toFullWidth(const String& s);
+String toKatakana(const String& s);
+String toHiragana(const String& s);
+String toSimplifiedChinese(const String& s);
+String toTraditionalChinese(const String& s);
 
 } // namespace ucr

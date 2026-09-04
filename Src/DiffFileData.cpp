@@ -9,7 +9,6 @@
 #include "pch.h"
 #include "DiffFileData.h"
 #include "cio.h"
-#include "DiffItem.h"
 #include "diff.h"
 #include "FileTransform.h"
 #include "unicoder.h"
@@ -138,7 +137,10 @@ bool DiffFileData::Filepath_Transform(int target, bool bForceUTF8,
 	// if a prediffer fails, we consider it is not the good one, that's all
 	// FileTransform_Prediffing returns `false` only if the prediffer works, 
 	// but the data can not be saved to disk (no more place ??)
-	if (!infoPrediffer.Prediffing(target, filepathTransformed, filteredFilenames, bMayOverwrite, { filepath }))
+	PluginPipelineContext pipelineContext;
+	pipelineContext.filteredFilenames = filteredFilenames;
+	pipelineContext.variables = { filepath };
+	if (!infoPrediffer.Prediffing(target, filepathTransformed, bMayOverwrite, pipelineContext))
 		return false;
 
 	if ((encoding.m_unicoding && encoding.m_unicoding != ucr::UTF8) || bForceUTF8)

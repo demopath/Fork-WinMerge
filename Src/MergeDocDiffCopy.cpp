@@ -12,8 +12,7 @@
 #include "MergeEditView.h"
 #include "DiffList.h"
 #include "MergeLineFlags.h"
-#include "MergeFrameCommon.h"
-#include "Logger.h"
+#include "MergeLogger.h"
 
 #ifdef _DEBUG
 #define new DEBUG_NEW
@@ -51,6 +50,15 @@ private:
 };
 
 /**
+ * @brief Show error message when trying to copy invisible lines
+ */
+static void ShowCannotCopyInvisibleLinesError()
+{
+	String strMessage = _("Merging/copying differences that contain hidden lines is not currently supported.\n\nPlease clear the display filter or adjust the filter settings to show all lines before merging.");
+	AfxMessageBox(strMessage.c_str(), MB_OK | MB_ICONERROR);
+}
+
+/**
  * @brief Copy all diffs from one side to side.
  * @param [in] srcPane Source side from which diff is copied
  * @param [in] dstPane Destination side
@@ -85,6 +93,13 @@ void CMergeDoc::CopyMultipleList(int srcPane, int dstPane, int firstDiff, int la
 	if (firstDiff > lastDiff)
 		return;
 
+	// Check if the range contains invisible lines
+	if (HasInvisibleLines(firstDiff, lastDiff))
+	{
+		ShowCannotCopyInvisibleLinesError();
+		return;
+	}
+
 	RescanSuppress suppressRescan(*this);
 
 	// Note we don't care about m_nDiffs count to become zero,
@@ -108,12 +123,8 @@ void CMergeDoc::CopyMultipleList(int srcPane, int dstPane, int firstDiff, int la
 	SetEditedAfterRescan(dstPane);
 
 	int nGroup = GetActiveMergeView()->m_nThisGroup;
-	CMergeEditView* pViewSrc = m_pView[nGroup][srcPane];
 	CMergeEditView* pViewDst = m_pView[nGroup][dstPane];
-	CEPoint currentPosSrc = pViewSrc->GetCursorPos();
-	currentPosSrc.x = 0;
-	CEPoint currentPosDst = pViewDst->GetCursorPos();
-	currentPosDst.x = 0;
+	CEPoint currentPosDst{ 0, pViewDst->GetCursorPos().y };
 
 	CEPoint pt(0, 0);
 	pViewDst->SetCursorPos(pt);
@@ -169,6 +180,13 @@ void CMergeDoc::CopyMultiplePartialList(int srcPane, int dstPane, int activePane
 	const int firstLineDiff = ptStart.y;
 	const int lastLineDiff = ptEnd.x == 0 ? ptEnd.y - 1 : ptEnd.y;
 
+	// Check if the range contains invisible lines
+	if (HasInvisibleLines(firstDiff, lastDiff))
+	{
+		ShowCannotCopyInvisibleLinesError();
+		return;
+	}
+
 	RescanSuppress suppressRescan(*this);
 
 	bool bGroupWithPrevious = false;
@@ -196,12 +214,8 @@ void CMergeDoc::CopyMultiplePartialList(int srcPane, int dstPane, int activePane
 	SetEditedAfterRescan(dstPane);
 
 	int nGroup = GetActiveMergeView()->m_nThisGroup;
-	CMergeEditView* pViewSrc = m_pView[nGroup][srcPane];
 	CMergeEditView* pViewDst = m_pView[nGroup][dstPane];
-	CEPoint currentPosSrc = pViewSrc->GetCursorPos();
-	currentPosSrc.x = 0;
-	CEPoint currentPosDst = pViewDst->GetCursorPos();
-	currentPosDst.x = 0;
+	CEPoint currentPosDst{ 0, pViewDst->GetCursorPos().y };
 
 	CEPoint pt(0, 0);
 	pViewDst->SetCursorPos(pt);
@@ -238,7 +252,8 @@ void CMergeDoc::CopyMultiplePartialList(int srcPane, int dstPane, int activePane
 				}
 				else
 				{
-					if (!CharacterListCopy(srcPane, dstPane, activePane, firstDiff, ptStart, ptEnd, bGroupWithPrevious, false))
+					CEPoint ptEndAjusted = CEPoint(0, pdi->dend + 1);
+					if (!CharacterListCopy(srcPane, dstPane, activePane, firstDiff, ptStart, ptEndAjusted, bGroupWithPrevious, false))
 						break; // sync failure
 				}
 			}
@@ -431,6 +446,39 @@ bool CMergeDoc::SanityCheckDiff(const DIFFRANGE& dr) const
 	return true;
 }
 
+/**
+ * @brief Check if any lines in the given diff range are invisible.
+ *
+ * @param [in] firstDiff First diff to check (0-based index)
+ * @param [in] lastDiff Last diff to check (0-based index)
+ * @return true if any lines in the range have the LF_INVISIBLE flag set.
+ */
+bool CMergeDoc::HasInvisibleLines(int firstDiff, int lastDiff) const
+{
+	for (int i = firstDiff; i <= lastDiff; ++i)
+	{
+		if (!m_diffList.IsDiffSignificant(i))
+			continue;
+
+		DIFFRANGE cd;
+		if (!m_diffList.GetDiff(i, cd))
+			continue;
+
+		for (int nBuffer = 0; nBuffer < m_nBuffers; nBuffer++)
+		{
+			for (int line = cd.dbegin; line <= cd.dend; line++)
+			{
+				if (line >= m_ptBuf[nBuffer]->GetLineCount())
+					break;
+				lineflags_t dwFlags = m_ptBuf[nBuffer]->GetLineFlags(line);
+				if (dwFlags & LF_INVISIBLE)
+					return true;
+			}
+		}
+	}
+	return false;
+}
+
 bool CMergeDoc::TransformText(String& text)
 { 
 	if (m_editorScriptInfo.GetPluginPipeline().empty())
@@ -440,7 +488,10 @@ bool CMergeDoc::TransformText(String& text)
 		return false;
 	const int nActivePane = pwndActiveWindow->m_nThisPane;
 	bool bChanged = false;
-	m_editorScriptInfo.TransformText(nActivePane, text, { m_filePaths[nActivePane] }, bChanged);
+	PluginPipelineContext pipelineContext;
+	pipelineContext.variables = { m_filePaths[nActivePane] };
+	pipelineContext.tableProps = GetCurrentTableProperties(nActivePane);
+	m_editorScriptInfo.TransformText(nActivePane, text, pipelineContext, bChanged);
 	return bChanged;
 }
 
@@ -520,7 +571,7 @@ bool CMergeDoc::ListCopy(int srcPane, int dstPane, int nDiff /* = -1*/,
 
 		if (!bInSync)
 		{
-			LangMessageBox(IDS_VIEWS_OUTOFSYNC, MB_ICONSTOP);
+			I18n::MessageBox(IDS_VIEWS_OUTOFSYNC, MB_ICONSTOP);
 			return false; // abort copying
 		}
 
@@ -584,7 +635,7 @@ bool CMergeDoc::ListCopy(int srcPane, int dstPane, int nDiff /* = -1*/,
 		// changes, but none that concern the source text
 		sbuf.SetModified(bSrcWasMod);
 
-		CMergeFrameCommon::LogCopyDiff(srcPane, dstPane, nDiff);
+		MergeLogger::LogCopyDiff(srcPane, dstPane, nDiff);
 	}
 
 	suppressRescan.Clear(); // done suppress Rescan
@@ -616,7 +667,7 @@ bool CMergeDoc::LineListCopy(int srcPane, int dstPane, int nDiff, int firstLine,
 
 	if (!bInSync)
 	{
-		LangMessageBox(IDS_VIEWS_OUTOFSYNC, MB_ICONSTOP);
+		I18n::MessageBox(IDS_VIEWS_OUTOFSYNC, MB_ICONSTOP);
 		return false; // abort copying
 	}
 
@@ -679,7 +730,7 @@ bool CMergeDoc::LineListCopy(int srcPane, int dstPane, int nDiff, int firstLine,
 	// changes, but none that concern the source text
 	sbuf.SetModified(bSrcWasMod);
 
-	CMergeFrameCommon::LogCopyLines(srcPane, dstPane, firstLine, lastLine);
+	MergeLogger::LogCopyLines(srcPane, dstPane, firstLine, lastLine);
 
 	suppressRescan.Clear(); // done suppress Rescan
 	FlushAndRescan();
@@ -705,12 +756,11 @@ bool CMergeDoc::InlineDiffListCopy(int srcPane, int dstPane, int nDiff, int firs
 	bool bSrcWasMod = sbuf.IsModified();
 	const int cd_dbegin = cd.dbegin;
 	const int cd_dend = cd.dend;
-	const int cd_blank = cd.blank[srcPane];
 	bool bInSync = SanityCheckDiff(cd);
 
 	if (!bInSync)
 	{
-		LangMessageBox(IDS_VIEWS_OUTOFSYNC, MB_ICONSTOP);
+		I18n::MessageBox(IDS_VIEWS_OUTOFSYNC, MB_ICONSTOP);
 		return false; // abort copying
 	}
 
@@ -798,7 +848,7 @@ bool CMergeDoc::InlineDiffListCopy(int srcPane, int dstPane, int nDiff, int firs
 	// changes, but none that concern the source text
 	sbuf.SetModified(bSrcWasMod);
 
-	CMergeFrameCommon::LogCopyInlineDiffs(srcPane, dstPane, nDiff, firstWordDiff, lastWordDiff);
+	MergeLogger::LogCopyInlineDiffs(srcPane, dstPane, nDiff, firstWordDiff, lastWordDiff);
 
 	suppressRescan.Clear(); // done suppress Rescan
 	FlushAndRescan();
@@ -818,6 +868,7 @@ static int GetDistance(const CDiffTextBuffer& buf, const CEPoint& pt1, const CEP
 		if (y == pt2.y)
 			distance -= buf.GetFullLineLength(y) - pt2.x;
 	}
+	assert(distance >= 0);
 	return distance;
 };
 
@@ -851,6 +902,106 @@ static CEPoint Advance(const CDiffTextBuffer& buf, const CEPoint& pt, int distan
 	return ptMoved;
 }
 
+/**
+ * @brief Find the word diff index that contains or precedes the given point
+ * @param [in] worddiffs Array of word diffs
+ * @param [in] pt Point to check
+ * @param [in] pane Pane index
+ * @param [out] inDiff True if the point is within a word diff, false otherwise
+ * @return Index of the word diff, or -1 if not found
+ */
+static int FindWordDiffIndex(const std::vector<WordDiff>& worddiffs, const CEPoint& pt, int pane, bool& inDiff)
+{
+	int wordDiffIndex = -1;
+	inDiff = false;
+	for (int i = 0; i < static_cast<int>(worddiffs.size()); ++i)
+	{
+		// Check if pt is at or after the beginning of this worddiff
+		if ((pt.y > worddiffs[i].beginline[pane]) ||
+			(pt.y == worddiffs[i].beginline[pane] && pt.x >= worddiffs[i].begin[pane]))
+		{
+			// Check if pt is within this worddiff
+			if ((pt.y < worddiffs[i].endline[pane]) ||
+				(pt.y == worddiffs[i].endline[pane] && pt.x < worddiffs[i].end[pane]))
+			{
+				// pt is within this worddiff
+				wordDiffIndex = i;
+				inDiff = true;
+				break;
+			}
+			else if ((pt.y == worddiffs[i].endline[pane] && pt.x >= worddiffs[i].end[pane]) ||
+					 (pt.y > worddiffs[i].endline[pane]))
+			{
+				// pt is after this worddiff, continue searching
+				wordDiffIndex = i;
+			}
+		}
+	}
+	return wordDiffIndex;
+}
+
+/**
+ * @brief Check if a point is within a word diff
+ * @param [in] wdiff Word diff to check against
+ * @param [in] pt Point to check
+ * @param [in] pane Pane index
+ * @return True if the point is within the word diff, false otherwise
+ */
+static bool IsPointInWordDiff(const WordDiff& wdiff, const CEPoint& pt, int pane)
+{
+	if ((pt.y > wdiff.beginline[pane]) ||
+		(pt.y == wdiff.beginline[pane] && pt.x >= wdiff.begin[pane]))
+	{
+		if ((pt.y < wdiff.endline[pane]) ||
+			(pt.y == wdiff.endline[pane] && pt.x < wdiff.end[pane]))
+		{
+			return true;
+		}
+	}
+	return false;
+}
+
+/**
+ * @brief Calculate the corresponding point in the target pane for a point in the active pane
+ * @param [in] wdiff Word diff containing the point
+ * @param [in] pt Point in the active pane
+ * @param [in] activePane Active pane index
+ * @param [in] targetPane Target pane index
+ * @param [in] ptInDiff True if pt is within the word diff
+ * @param [in] bufActive Active pane buffer
+ * @param [in] bufTarget Target pane buffer
+ * @return Corresponding point in the target pane
+ */
+static CEPoint CalculateCorrespondingPoint(const WordDiff& wdiff, const CEPoint& pt, int activePane, int targetPane,
+	bool ptInDiff, const CDiffTextBuffer& bufActive, const CDiffTextBuffer& bufTarget)
+{
+	if (ptInDiff)
+	{
+		// Point is within the word diff - calculate relative position
+		const int distanceFromBegin = GetDistance(bufActive, 
+			CEPoint{ wdiff.begin[activePane], wdiff.beginline[activePane] }, pt);
+		const int targetWordDiffLength = GetDistance(bufTarget, 
+			CEPoint{ wdiff.begin[targetPane], wdiff.beginline[targetPane] }, 
+			CEPoint{ wdiff.end[targetPane], wdiff.endline[targetPane] });
+		// Cap at the word diff length to avoid going beyond it
+		const int adjustedDistance = (std::min)(distanceFromBegin, targetWordDiffLength);
+		CEPoint ptTarget = Advance(bufTarget, 
+			CEPoint{ wdiff.begin[targetPane], wdiff.beginline[targetPane] }, adjustedDistance);
+		// Double-check the result is within the word diff
+		if (!IsPointInWordDiff(wdiff, ptTarget, targetPane))
+			ptTarget = CEPoint{ wdiff.end[targetPane], wdiff.endline[targetPane] };
+		return ptTarget;
+	}
+	else
+	{
+		// Point is after the word diff - calculate distance from the end
+		const int distanceFromEnd = GetDistance(bufActive, 
+			CEPoint{ wdiff.end[activePane], wdiff.endline[activePane] }, pt);
+		return Advance(bufTarget, 
+			CEPoint{ wdiff.end[targetPane], wdiff.endline[targetPane] }, distanceFromEnd);
+	}
+}
+
 std::tuple<CEPoint, CEPoint, CEPoint, CEPoint> CMergeDoc::GetCharacterRange(int srcPane, int dstPane, int activePane, int nDiff,
 	const CEPoint& ptStart, const CEPoint& ptEnd)
 {
@@ -862,25 +1013,15 @@ std::tuple<CEPoint, CEPoint, CEPoint, CEPoint> CMergeDoc::GetCharacterRange(int 
 	std::vector<WordDiff> worddiffs = GetWordDiffArrayInDiffBlock(nDiff, true);
 
 	int firstWordDiff = -1;
-	if ((m_ptBuf[activePane]->GetLineFlags(ptStart.y) & LF_GHOST) == 0)
-	{
-		for (int i = 0; i < static_cast<int>(worddiffs.size()); ++i)
-		{
-			if ((ptStart.y == worddiffs[i].endline[activePane] && ptStart.x >= worddiffs[i].end[activePane]) ||
-				(ptStart.y > worddiffs[i].endline[activePane]))
-				firstWordDiff = i;
-		}
-	}
+	bool firstWordDiffIn = false;
+	const int nBeginLineFlag = m_ptBuf[activePane]->GetLineFlags(ptStart.y);
+	if ((nBeginLineFlag & LF_GHOST) == 0 && (nBeginLineFlag & LF_DIFF) != 0)
+		firstWordDiff = FindWordDiffIndex(worddiffs, ptStart, activePane, firstWordDiffIn);
 	int lastWordDiff = -1;
-	if ((m_ptBuf[activePane]->GetLineFlags(ptEnd.y) & LF_GHOST) == 0)
-	{
-		for (int i = 0; i < static_cast<int>(worddiffs.size()); ++i)
-		{
-			if ((ptEnd.y == worddiffs[i].endline[activePane] && ptEnd.x >= worddiffs[i].end[activePane]) ||
-				(ptEnd.y > worddiffs[i].endline[activePane]))
-				lastWordDiff = i;
-		}
-	}
+	bool lastWordDiffIn = false;
+	const int nEndLineFlag = m_ptBuf[activePane]->GetLineFlags(ptEnd.y);
+	if ((nEndLineFlag & LF_GHOST) == 0 && (nEndLineFlag & LF_DIFF) != 0)
+		lastWordDiff = FindWordDiffIndex(worddiffs, ptEnd, activePane, lastWordDiffIn);
 
 	CEPoint ptDstStart, ptDstEnd;
 	CEPoint ptSrcStart, ptSrcEnd;
@@ -903,30 +1044,22 @@ std::tuple<CEPoint, CEPoint, CEPoint, CEPoint> CMergeDoc::GetCharacterRange(int 
 			}
 			else
 			{
-				if (ptSrcStart.x > m_ptBuf[dstPane]->GetLineLength(ptSrcStart.y))
-					ptSrcStart.x = m_ptBuf[dstPane]->GetLineLength(ptSrcStart.y);
+				if (ptSrcStart.x > m_ptBuf[srcPane]->GetLineLength(ptSrcStart.y))
+					ptSrcStart.x = m_ptBuf[srcPane]->GetLineLength(ptSrcStart.y);
 			}
 		}
 	}
 	else
 	{
 		const auto& wdiffFirst = worddiffs[firstWordDiff];
-		const int distanceBegin = GetDistance(*m_ptBuf[activePane], CEPoint{ wdiffFirst.begin[activePane], wdiffFirst.beginline[activePane] }, ptStart);
-		const int distanceEnd = GetDistance(*m_ptBuf[activePane], CEPoint{ wdiffFirst.end[activePane], wdiffFirst.endline[activePane] }, ptStart);
 		if (srcPane == activePane)
 		{
-			if (distanceBegin <= 0)
-				ptDstStart = { wdiffFirst.begin[dstPane], wdiffFirst.beginline[dstPane] };
-			else
-				ptDstStart = Advance(*m_ptBuf[dstPane], CEPoint{ wdiffFirst.end[dstPane], wdiffFirst.endline[dstPane] }, distanceEnd);
+			ptDstStart = CalculateCorrespondingPoint(wdiffFirst, ptStart, activePane, dstPane, firstWordDiffIn, *m_ptBuf[activePane], *m_ptBuf[dstPane]);
 			ptSrcStart = ptStart;
 		}
 		else
 		{
-			if (distanceBegin <= 0)
-				ptSrcStart = { wdiffFirst.begin[srcPane], wdiffFirst.beginline[srcPane] };
-			else
-				ptSrcStart = Advance(*m_ptBuf[srcPane], CEPoint{ wdiffFirst.end[srcPane], wdiffFirst.endline[srcPane] }, distanceEnd);
+			ptSrcStart = CalculateCorrespondingPoint(wdiffFirst, ptStart, activePane, srcPane, firstWordDiffIn, *m_ptBuf[activePane], *m_ptBuf[srcPane]);
 			ptDstStart = ptStart;
 		}
 	}
@@ -948,30 +1081,22 @@ std::tuple<CEPoint, CEPoint, CEPoint, CEPoint> CMergeDoc::GetCharacterRange(int 
 			}
 			else
 			{
-				if (ptDstEnd.x > m_ptBuf[dstPane]->GetLineLength(ptDstEnd.y))
-					ptDstEnd.x = m_ptBuf[dstPane]->GetLineLength(ptDstEnd.y);
+				if (ptSrcEnd.x > m_ptBuf[srcPane]->GetLineLength(ptSrcEnd.y))
+					ptSrcEnd.x = m_ptBuf[srcPane]->GetLineLength(ptSrcEnd.y);
 			}
 		}
 	}
 	else
 	{
 		const auto& wdiffLast = worddiffs[lastWordDiff];
-		const int distanceBegin = GetDistance(*m_ptBuf[activePane], CEPoint{ wdiffLast.begin[activePane], wdiffLast.beginline[activePane] }, ptEnd);
-		const int distanceEnd = GetDistance(*m_ptBuf[activePane], CEPoint{ wdiffLast.end[activePane], wdiffLast.endline[activePane] }, ptEnd);
 		if (srcPane == activePane)
 		{
-			if (distanceBegin <= 0)
-				ptDstEnd = { wdiffLast.begin[dstPane], wdiffLast.beginline[dstPane] };
-			else
-				ptDstEnd = Advance(*m_ptBuf[dstPane], CEPoint{ wdiffLast.end[dstPane], wdiffLast.endline[dstPane] }, distanceEnd);
+			ptDstEnd = CalculateCorrespondingPoint(wdiffLast, ptEnd, activePane, dstPane, lastWordDiffIn, *m_ptBuf[activePane], *m_ptBuf[dstPane]);
 			ptSrcEnd = ptEnd;
 		}
 		else
 		{
-			if (distanceBegin <= 0)
-				ptSrcEnd = { wdiffLast.begin[srcPane], wdiffLast.beginline[srcPane] };
-			else
-				ptSrcEnd = Advance(*m_ptBuf[srcPane], CEPoint{ wdiffLast.end[srcPane], wdiffLast.endline[srcPane] }, distanceEnd);
+			ptSrcEnd = CalculateCorrespondingPoint(wdiffLast, ptEnd, activePane, srcPane, lastWordDiffIn, *m_ptBuf[activePane], *m_ptBuf[srcPane]);
 			ptDstEnd = ptEnd;
 		}
 	}
@@ -1022,7 +1147,7 @@ bool CMergeDoc::CharacterListCopy(int srcPane, int dstPane, int activePane, int 
 
 	if (!bInSync)
 	{
-		LangMessageBox(IDS_VIEWS_OUTOFSYNC, MB_ICONSTOP);
+		I18n::MessageBox(IDS_VIEWS_OUTOFSYNC, MB_ICONSTOP);
 		return false; // abort copying
 	}
 
@@ -1065,7 +1190,7 @@ bool CMergeDoc::CharacterListCopy(int srcPane, int dstPane, int activePane, int 
 	// changes, but none that concern the source text
 	sbuf.SetModified(bSrcWasMod);
 
-	CMergeFrameCommon::LogCopyCharacters(srcPane, dstPane,  nDiff, ptStart, ptEnd);
+	MergeLogger::LogCopyCharacters(srcPane, dstPane,  nDiff, ptStart, ptEnd);
 
 	suppressRescan.Clear(); // done suppress Rescan
 	FlushAndRescan();

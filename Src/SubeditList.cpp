@@ -419,9 +419,9 @@ void CSubeditList::EditSubLabelWildcardDropList( int nItem, int nCol )
 	if (GetEditStyle(nCol) != EditStyle::WILDCARD_DROP_LIST)
 		return;
 
-	CString pattern = GetDropListFixedPattern(nItem, nCol).c_str();
+	const String pattern = GetDropListFixedPattern(nItem, nCol);
 	int nLimitTextSize = GetLimitTextSize(nCol);
-	WildcardDropList::OnItemActivate(m_hWnd, nItem, nCol, 4, pattern, true, nLimitTextSize);
+	WildcardDropList::OnItemActivate(m_hWnd, nItem, nCol, 4, pattern.c_str(), true, nLimitTextSize);
 }
 
 void CSubeditList::OnHScroll(UINT nSBCode, UINT nPos, CScrollBar* pScrollBar)
@@ -542,7 +542,7 @@ BOOL CInPlaceEdit::PreTranslateMessage(MSG* pMsg)
 		if(pMsg->wParam == VK_RETURN
 				|| pMsg->wParam == VK_DELETE
 				|| pMsg->wParam == VK_ESCAPE
-				|| GetKeyState( VK_CONTROL)
+				|| GetKeyState( VK_CONTROL) < 0
 				)
 		{
 			::TranslateMessage(pMsg);
@@ -672,7 +672,7 @@ BOOL CInPlaceComboBox::PreTranslateMessage(MSG* pMsg)
 		if(pMsg->wParam == VK_RETURN
 				|| pMsg->wParam == VK_DELETE
 				|| pMsg->wParam == VK_ESCAPE
-				|| GetKeyState( VK_CONTROL)
+				|| GetKeyState( VK_CONTROL) < 0
 				)
 		{
 			::TranslateMessage(pMsg);

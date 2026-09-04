@@ -12,6 +12,7 @@
 
 #include "IMDITab.h"
 #include "IMergeDoc.h"
+#include "FilterEngine/ILineDataProvider.h"
 #include "DiffTextBuffer.h"
 #include "DiffWrapper.h"
 #include "DiffList.h"
@@ -19,10 +20,16 @@
 #include "PathContext.h"
 #include "FileLoadResult.h"
 #include "FileTransform.h"
+#include "LineFilterHelper.h"
+#include "TableProps.h"
 #include <vector>
 #include <map>
 #include <memory>
 #include <optional>
+
+class CLineFilterHelperMenu;
+class CMainFrame;
+typedef CTypedPtrList<CPtrList, CMergeDoc*> MergeDocList;
 
 /**
  * @brief Additional action codes for WinMerge.
@@ -121,10 +128,9 @@ class CMergeEditSplitterView;
 /**
  * @brief Document class for merging two files
  */
-class CMergeDoc : public CDocument, public IMergeDoc, public IMDITab
+class CMergeDoc : public CDocument, public IMergeDoc, public IMDITab, public ILineDataProvider
 {
 public:
-	struct TableProps { bool istable; tchar_t delimiter; tchar_t quote; bool allowNewlinesInQuotes; };
 	// Attributes
 public:
 	static int m_nBuffersTemp;
@@ -159,7 +165,7 @@ public:
 		const bool bRO[], const String strDesc[]);
 	int LoadFile(const String& sFileName, int nBuffer, bool& readOnly, const FileTextEncoding& encoding);
 	void MoveOnLoad(int nPane = -1, int nLinIndex = -1, bool bRealLine = false, int nCharIndex = -1);
-	void ChangeFile(int nBuffer, const String& path, int nLineIndex = -1);
+	bool ChangeFile(int nBuffer, const String& path, const String& description = _T(""), int nLineIndex = -1);
 	void RescanIfNeeded(float timeOutInSecond);
 	int Rescan(bool& bBinary, IDENTLEVEL& identical, bool bForced = false);
 	void CheckFileChanged(void) override;
@@ -172,6 +178,7 @@ public:
 		int firstDiff, int lastDiff, const CEPoint& ptStart, const CEPoint& ptEnd, bool bCharacter);
 	void DoAutoMerge(int dstPane);
 	bool SanityCheckDiff(const DIFFRANGE& dr) const;
+	bool HasInvisibleLines(int firstDiff, int lastDiff) const;
 	bool InlineDiffListCopy(int srcPane, int dstPane, int nDiff, int nFirstWordDiff, int nLastWordDiff, const std::vector<int>* pWordDiffIndice, bool bGroupWithPrevious = false, bool bUpdateView = true);
 	bool LineListCopy(int srcPane, int dstPane, int nDiff, int firstLine, int lastLine = -1, bool bGroupWithPrevious = false, bool bUpdateView = true);
 	bool CharacterListCopy(int srcPane, int dstPane, int activePane, int nDiff, const CEPoint& ptStart, const CEPoint& ptEnd, bool bGroupWithPrevious = false, bool bUpdateView = true);
@@ -193,6 +200,8 @@ public:
 	void SetPrediffer(const PrediffingInfo* infoPrediffer);
 	void GetPrediffer(PrediffingInfo* infoPrediffer) const;
 	const PrediffingInfo* GetPrediffer() const override;
+	void IgnoreColumnInComparison(int column, const String& panePrefix, bool add);
+	void ResetIgnoredColumnsInComparison();
 	const EditorScriptInfo* GetEditorScript() const override { return &m_editorScriptInfo; };
 	void AddMergeViews(CMergeEditSplitterView* pMergeEditSplitterView, CMergeEditView* pView[3]);
 	void RemoveMergeViews(CMergeEditSplitterView* pMergeEditSplitterView);
@@ -229,7 +238,7 @@ public:
 		}
 		else
 		{
-			list.reserve(m_nGroups * m_nBuffers);
+			list.reserve(static_cast<std::vector<CMergeEditView *>::size_type>(m_nGroups) * m_nBuffers);
 			for (int nGroup3 = 0; nGroup3 < m_nGroups; nGroup3++)
 				for (int nBuffer3 = 0; nBuffer3 < m_nBuffers; ++nBuffer3)
 					list.push_back(m_pView[nGroup3][nBuffer3]);
@@ -255,6 +264,11 @@ public:
 		for (int nBuffer = 0; nBuffer < m_nBuffers; ++nBuffer)
 			func(m_pView[nGroup][nBuffer]);
 	}
+	template <typename Function>
+	void ForEachGroupView(int nGroup, Function func) {
+		for (int nBuffer = 0; nBuffer < m_nBuffers; ++nBuffer)
+			func(m_pView[nGroup][nBuffer]);
+	}
 	CMergeEditFrame * GetParentFrame();
 
 	void AddSyncPoint();
@@ -271,6 +285,16 @@ public:
 				m_nBufferType[pane] = BUFFERTYPE::NORMAL_NAMED;
 		}
 	}
+
+	// ILineDataProvider
+	int GetLineCount() const override;
+	std::string GetLine(int pane, int lineIndex) const override;
+	int GetColumnCount(int pane, int lineIndex) const override;
+	std::string GetColumn(int pane, int lineIndex, int columnIndex) const override;
+	std::string GetColumns(int pane, int lineIndex, const std::vector<int>& columns) const override;
+	int GetRealLineNumber(int pane, int lineIndex) const override;
+	unsigned GetLineFlags(int pane, int lineIndex) const override;
+	unsigned GetLineEol(int pane, int lineIndex) const override;
 
 	// Overrides
 	// ClassWizard generated virtual function overrides
@@ -289,6 +313,8 @@ public:
 	void Showlinediff(CMergeEditView *pView, bool bReversed = false);
 	void AddToSubstitutionFilters(CMergeEditView* pView, bool bReversed = false);
 	void AddToLineFilters(const String& text);
+	void AddToDisplayFilters(const String& text);
+	void AddColumnToDisplayFilters(int pane, int column, int dataType);
 	std::vector<WordDiff> GetWordDiffArrayInDiffBlock(int nDiff, bool ignoreDiffOptions = false);
 	std::vector<WordDiff> GetWordDiffArray(int nLineIndex, bool ignoreDiffOptions = false);
 	std::vector<WordDiff> GetWordDiffArrayInRange(const int begin[3], const int end[3], bool ignoreDiffOptions = false, int pane1 = -1, int pane2 = -1);
@@ -321,7 +347,8 @@ public:
 	virtual ~CMergeDoc();
 	void SetDetectMovedBlocks(bool bDetectMovedBlocks);
 	bool IsMixedEOL(int nBuffer) const;
-	bool GenerateReport(const String& sFileName) const override;
+	bool GenerateReport(ReportContext& reportContext) const override;
+	IMergeDoc::DocumentType GetDocumentType() const override;
 	void SetAutoMerged(bool bAutoMerged) { m_bAutoMerged = bAutoMerged; }
 	bool GetAutoMerged() const { return m_bAutoMerged; };
 	bool IsModified() const
@@ -342,16 +369,16 @@ public:
 	std::optional<bool> GetEnableTableEditing() const { return m_bEnableTableEditing; }
 	void SetEnableTableEditing(std::optional<bool> bEnableTableEditing) { m_bEnableTableEditing = bEnableTableEditing; }
 	static TableProps MakeTablePropertiesByFileName(const String& path, const std::optional<bool>& enableTableEditing, bool showDialog = true);
+	const TableProps* GetPreparedTableProperties() const { return m_pTablePropsPrepared.get(); }
 	void SetPreparedTableProperties(const TableProps& props) { m_pTablePropsPrepared.reset(new TableProps(props)); }
+	TableProps GetCurrentTableProperties(int pane) const;
 
 	void SetTextType(int textType);
 	void SetTextType(const String& ext);
 	bool GetChangedSchemeManually() const { return m_bChangedSchemeManually; }
 
 	bool GetAutomaticRescan() const { return m_bAutomaticRescan; }
-	// to customize the mergeview menu
-	HMENU createPrediffersSubmenu(HMENU hMenu);
-	String GetSaveAsPath() const { return m_strSaveAsPath; }
+	const String& GetSaveAsPath() const { return m_strSaveAsPath; }
 	void SetSaveAsPath(const String& strSaveAsPath) { m_strSaveAsPath = strSaveAsPath; }
 
 // implementation methods
@@ -389,6 +416,7 @@ protected:
 	bool m_bAutoMerged;
 	std::optional<bool> m_bEnableTableEditing;
 	std::unique_ptr<TableProps> m_pTablePropsPrepared;
+	std::unique_ptr<CLineFilterHelperMenu> m_pFilterMenu;
 	/**
 	 * Are automatic rescans enabled?
 	 * If automatic rescans are enabled then we rescan files after edit
@@ -397,11 +425,10 @@ protected:
 	 */
 	bool m_bAutomaticRescan;
 	/// active prediffer ID : helper to check the radio button
-	int m_CurrentPredifferID;
-	int m_CurrentEditorScriptID;
 	bool m_bChangedSchemeManually;	/**< `true` if the syntax highlighting scheme is changed manually */
 	String m_sCurrentHeaderTitle[3];
 	EditorScriptInfo m_editorScriptInfo;
+	LineFilterHelper m_displayFilterHelper;
 
 // friend access
 	friend class RescanSuppress;
@@ -434,8 +461,6 @@ protected:
 	afx_msg void OnUpdateStatusRO(CCmdUI* pCmdUI);
 	afx_msg void OnDiffContext(UINT nID);
 	afx_msg void OnUpdateDiffContext(CCmdUI* pCmdUI);
-	afx_msg void OnToolsGenerateReport();
-	afx_msg void OnToolsGeneratePatch();
 	afx_msg void OnOpenWithUnpacker();
 	afx_msg void OnApplyPrediffer();
 	afx_msg void OnBnClickedFileEncoding();
@@ -447,6 +472,7 @@ protected:
 	afx_msg void OnUpdateFileRecompareAsText(CCmdUI* pCmdUI);
 	afx_msg void OnUpdateFileRecompareAsTable(CCmdUI* pCmdUI);
 	afx_msg void OnFileRecompareAs(UINT nID);
+	afx_msg void OnUpdateFileRecompareAs(CCmdUI* pCmdUI);
 	template<int srcPane, int dstPane>
 	afx_msg void OnViewSwapPanes();
 	afx_msg void OnUpdateSwapContext(CCmdUI* pCmdUI);
@@ -456,10 +482,14 @@ protected:
 	afx_msg void OnScriptsForCopying(UINT nID);
 	afx_msg void OnUpdateScriptsForCopying(CCmdUI* pCmdUI);
 	afx_msg void OnSelectEditorScriptForCopying();
+	afx_msg void OnViewDisplayFilterBarApply();
+	afx_msg void OnViewDisplayFilterBar();
+	afx_msg void OnFilterMenuCommand(UINT nID);
 	//}}AFX_MSG
 	DECLARE_MESSAGE_MAP()
 private:
 	void PrimeTextBuffers();
+	std::pair<std::unique_ptr<CDiffContext>, std::unique_ptr<DIFFITEM>> CreateDiffItem() const;
 	void HideLines();
 	void AdjustDiffBlocks();
 	void AdjustDiffBlocks3way();
@@ -473,7 +503,6 @@ private:
 	void FlagMovedLines();
 	String GetFileExt(const tchar_t* sFileName, const tchar_t* sDescription) const;
 	void DoFileSave(int pane);
-	void SetPredifferByMenu(UINT nID);
 };
 
 /**
@@ -483,4 +512,3 @@ inline bool CMergeDoc::HasSyncPoints()
 {
 	return m_bHasSyncPoints;
 }
-

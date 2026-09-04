@@ -25,6 +25,9 @@
 #include "FileOpenFlags.h"
 #include "Logger.h"
 #include <Poco/Channel.h>
+#include "DarkModeLib.h"
+#include "WindowsManager.h"
+#include "TempFile.h"
 
 class BCMenu;
 class CDirView;
@@ -44,8 +47,10 @@ class CImgMergeFrame;
 class CWebPageDiffFrame;
 class DirWatcher;
 class COutputDoc;
+class CTempPathContext;
 
 typedef std::shared_ptr<TempFile> TempFilePtr;
+typedef std::shared_ptr<TempFolder> TempFolderPtr;
 
 // typed lists (homogenous pointer lists)
 typedef CTypedPtrList<CPtrList, COpenDoc *> OpenDocList;
@@ -81,12 +86,23 @@ public:
 		FRAME_OTHER, /**< No frame? */
 	};
 
-	struct OpenFileParams
+	struct OpenParams
 	{
-		virtual ~OpenFileParams() {}
+		virtual ~OpenParams() {}
 	};
 
-	struct OpenTextFileParams : public OpenFileParams
+	struct OpenFolderParams : virtual public OpenParams
+	{
+		OpenFolderParams() = default;
+		explicit OpenFolderParams(bool bRecurse) : m_bRecurse(bRecurse) {}
+		OpenFolderParams(bool bRecurse, const std::vector<String>& hiddenItems) 
+			: m_bRecurse(bRecurse), m_hiddenItems(hiddenItems) {}
+		virtual ~OpenFolderParams() {}
+		std::optional<bool> m_bRecurse;
+		std::vector<String> m_hiddenItems;
+	};
+
+	struct OpenTextFileParams : virtual public OpenParams
 	{
 		virtual ~OpenTextFileParams() {}
 		int m_line = -1;
@@ -103,14 +119,14 @@ public:
 		std::optional<bool> m_tableAllowNewlinesInQuotes;
 	};
 
-	struct OpenBinaryFileParams : public OpenFileParams
+	struct OpenBinaryFileParams : virtual public OpenParams
 	{
 		virtual ~OpenBinaryFileParams() {}
 		int m_address = -1;
 		String m_strSaveAsPath; /**< "3rd path" where output saved if given */
 	};
 
-	struct OpenImageFileParams : public OpenFileParams
+	struct OpenImageFileParams : virtual public OpenParams
 	{
 		virtual ~OpenImageFileParams() {}
 		int m_x = -1;
@@ -118,20 +134,15 @@ public:
 		String m_strSaveAsPath; /**< "3rd path" where output saved if given */
 	};
 
-	struct OpenWebPageParams : public OpenFileParams
+	struct OpenWebPageParams : virtual public OpenParams
 	{
 		virtual ~OpenWebPageParams() {}
 	};
 
-	struct OpenAutoFileParams : public OpenTableFileParams, public OpenBinaryFileParams, public OpenImageFileParams
+	struct OpenAutoParams : public OpenTableFileParams, public OpenBinaryFileParams, public OpenImageFileParams, public OpenWebPageParams, public OpenFolderParams
 	{
-		virtual ~OpenAutoFileParams() {}
-	};
-
-	struct OpenFolderParams : public OpenFileParams
-	{
-		virtual ~OpenFolderParams() {}
-		std::vector<String> m_hiddenItems;
+		OpenAutoParams() = default;
+		virtual ~OpenAutoParams() {}
 	};
 
 	CMainFrame();
@@ -139,7 +150,6 @@ public:
 // Attributes
 public:	
 	bool m_bShowErrors; /**< Show folder compare error items? */
-	static const tchar_t szClassName[];
 
 // Operations
 public:
@@ -152,35 +162,37 @@ public:
 	HMENU NewDefaultMenu(int ID = 0);
 	void UpdatePrediffersMenu(CMenu* pPredifferMenu);
 
+	static void GenerateDocumentReport(const std::vector<IMergeDoc*>& docs, const String& sReportFile);
+
 	bool DoFileOrFolderOpen(const PathContext *pFiles = nullptr,
 		const fileopenflags_t dwFlags[] = nullptr, const String strDesc[] = nullptr,
-		const String& sReportFile = _T(""), std::optional<bool> bRecurse = false, IDirDoc *pDirDoc = nullptr,
+		const String& sReportFile = _T(""), IDirDoc *pDirDoc = nullptr,
 		const PackingInfo * infoUnpacker = nullptr, const PrediffingInfo * infoPrediffer = nullptr,
-		UINT nID = 0, const OpenFileParams *pOpenParams = nullptr);
+		UINT nID = 0, const OpenParams *pOpenParams = nullptr);
 	bool DoFileOpen(UINT nID, const PathContext* pFiles,
 		const fileopenflags_t dwFlags[] = nullptr, const String strDesc[] = nullptr,
 		const String& sReportFile = _T(""),
 		const PackingInfo* infoUnpacker = nullptr, const PrediffingInfo * infoPrediffer = nullptr,
-		const OpenFileParams *pOpenParams = nullptr);
+		const OpenParams *pOpenParams = nullptr);
 	bool DoFileNew(UINT nID, int nPanes,
 		const fileopenflags_t dwFlags[] = nullptr, const String strDesc[] = nullptr,
 		const PrediffingInfo * infoPrediffer = nullptr,
-		const OpenFileParams *pOpenParams = nullptr);
+		const OpenParams *pOpenParams = nullptr);
 	bool DoOpenConflict(const String& conflictFile, const String strDesc[] = nullptr, bool checked = false);
 	bool DoOpenClipboard(UINT nID = 0, int nBuffers = 2, const fileopenflags_t dwFlags[] = nullptr, const String strDesc[] = nullptr,
 		const PackingInfo* infoUnpacker = nullptr, const PrediffingInfo * infoPrediffer = nullptr,
-		const OpenFileParams* pOpenParams = nullptr);
+		const OpenParams* pOpenParams = nullptr);
 	bool DoSelfCompare(UINT nID, const String& file, const String strDesc[] = nullptr,
 		const PackingInfo* infoUnpacker = nullptr, const PrediffingInfo * infoPrediffer = nullptr,
-		const OpenFileParams* pOpenParams = nullptr);
+		const OpenParams* pOpenParams = nullptr);
 	bool ShowAutoMergeDoc(UINT nID, IDirDoc * pDirDoc, int nFiles, const FileLocation fileloc[],
 		const fileopenflags_t dwFlags[], const String strDesc[], const String& sReportFile = _T(""),
 		const PackingInfo * infoUnpacker = nullptr, const PrediffingInfo * infoPrediffer = nullptr,
-		const OpenFileParams *pOpenParams = nullptr);
+		const OpenParams *pOpenParams = nullptr);
 	bool ShowMergeDoc(UINT nID, IDirDoc * pDirDoc, int nFiles, const FileLocation fileloc[],
 		const fileopenflags_t dwFlags[], const String strDesc[], const String& sReportFile = _T(""),
 		const PackingInfo * infoUnpacker = nullptr, const PrediffingInfo * infoPrediffer = nullptr,
-		const OpenFileParams *pOpenParams = nullptr);
+		const OpenParams *pOpenParams = nullptr);
 	bool ShowTextOrTableMergeDoc(std::optional<bool> table, IDirDoc * pDirDoc, int nFiles, const FileLocation fileloc[],
 		const fileopenflags_t dwFlags[], const String strDesc[], const String& sReportFile = _T(""),
 		const PackingInfo * infoUnpacker = nullptr, const PrediffingInfo * infoPrediffer = nullptr,
@@ -207,6 +219,10 @@ public:
 		const fileopenflags_t dwFlags[], const String strDesc[], const String& sReportFile = _T(""),
 		const PackingInfo * infoUnpacker = nullptr, const PrediffingInfo * infoPrediffer = nullptr,
 		const OpenWebPageParams *pOpenParams = nullptr);
+	bool ShowDirDoc(IDirDoc* pDirDoc, int nFiles, const FileLocation fileloc[],
+		const fileopenflags_t dwFlags[], const String strDesc[], const String& sReportFile = _T(""),
+		const PackingInfo* infoUnpacker = nullptr, const PrediffingInfo* infoPrediffer = nullptr,
+		const OpenFolderParams* pOpenParams = nullptr, CTempPathContext* pTempPathContext = nullptr);
 
 	void UpdateTitleBarAndTabBar();
 	void UpdateResources();
@@ -217,11 +233,8 @@ public:
 	static FRAMETYPE GetFrameType(const CFrameWnd * pFrame);
 	static void UpdateDocTitle();
 	static void ReloadMenu();
-	static void AppendPluginMenus(CMenu* pMenu, const String& filteredFilenames,
-		const std::vector<std::wstring>& events, bool addAllMenu, unsigned baseId);
-	static String GetPluginPipelineByMenuId(unsigned idSearch, const std::vector<std::wstring>& events, unsigned baseId);
 	DropHandler *GetDropHandler() const { return m_pDropHandler; }
-	const CTypedPtrArray<CPtrArray, CMDIChildWnd*>& GetChildArray() const { return m_arrChild; }
+	CWindowsManager& GetWindowsManager() { return m_wndManager; }
 	IMergeDoc* GetActiveIMergeDoc();
 	DirWatcher* GetDirWatcher() { return m_pDirWatcher.get(); }
 	void WatchDocuments(IMergeDoc* pMergeDoc);
@@ -230,6 +243,12 @@ public:
 	CToolBar* GetToolbar() { return &m_wndToolBar; }
 	static void WaitAndDoMessageLoop(bool& completed, int ms);
 	void OutputLog(Logger::LogLevel level, const std::chrono::system_clock::time_point& tp, const String& msg, bool show);
+	void AddTempFile(const TempFilePtr& pTempFile) { m_tempFiles.push_back(pTempFile); }
+	void AddTempFolder(const TempFolderPtr& pTempFolder) { m_tempFolders.push_back(pTempFolder); }
+	MergeDocList &GetAllMergeDocs();
+	DirDocList &GetAllDirDocs();
+	std::vector<IMergeDoc*> GetAllMergeDocuments();
+	void OnToolsGenerateReport();
 
 // Overrides
 	virtual void GetMessageString(UINT nID, CString& rMessage) const;
@@ -259,7 +278,7 @@ protected:
 	CToolBar m_wndToolBar;
 	CMDITabBar m_wndTabBar;
 	COutputBar m_wndOutputBar;
-	CTypedPtrArray<CPtrArray, CMDIChildWnd*> m_arrChild;
+	CWindowsManager m_wndManager;
 	Poco::Channel::Ptr m_pLogChannel;
 	int m_logging;
 
@@ -271,6 +290,17 @@ protected:
 		{
 			switch (message)
 			{
+			case WM_ERASEBKGND:
+			{
+				if (DarkMode::isEnabled())
+				{
+					CRect rcClient;
+					GetClientRect(rcClient);
+					::FillRect(reinterpret_cast<HDC>(wParam), &rcClient, DarkMode::getDlgBackgroundBrush());
+					return TRUE;
+				}
+				break;
+			}
 			case WM_MDICREATE:
 			case WM_MDIACTIVATE:
 			{
@@ -282,6 +312,20 @@ protected:
 				{
 					SetRedraw(FALSE);
 				}
+				LRESULT result = CWnd::WindowProc(message, wParam, lParam);
+				if (CMainFrame* pMainFrame = (CMainFrame*)AfxGetMainWnd())
+				{
+					if (message == WM_MDICREATE)
+						pMainFrame->GetWindowsManager().AddChildFrame((CMDIChildWnd*)CWnd::FromHandle(reinterpret_cast<HWND>(result)));
+					else
+						pMainFrame->GetWindowsManager().ChildFrameActivated((CMDIChildWnd*)CWnd::FromHandle(reinterpret_cast<HWND>(wParam)));
+				}
+				return result;
+			}
+			case WM_MDIDESTROY:
+			{
+				CMDIChildWnd* pChild = (CMDIChildWnd*)CWnd::FromHandle(reinterpret_cast<HWND>(wParam));
+				((CMainFrame*)AfxGetMainWnd())->GetWindowsManager().RemoveChildFrame(pChild);
 				break;
 			}
 			case WM_MDISETMENU:
@@ -346,6 +390,7 @@ protected:
 	std::unique_ptr<BCMenu> m_pImageMenu;
 	std::unique_ptr<BCMenu> m_pWebPageMenu;
 	std::vector<TempFilePtr> m_tempFiles; /**< List of possibly needed temp files. */
+	std::vector<std::shared_ptr<TempFolder>> m_tempFolders; /**< Temp folders for "New Folder" comparisons. */
 	DropHandler *m_pDropHandler;
 	std::unique_ptr<DirWatcher> m_pDirWatcher;
 	std::optional<bool> m_bTabsOnTitleBar;
@@ -368,6 +413,7 @@ protected:
 	afx_msg void OnHelpContents();
 	afx_msg void OnClose();
 	afx_msg void OnToolsGeneratePatch();
+	afx_msg void OnToolsGenerateArchive();
 	afx_msg void OnDropFiles(const std::vector<String>& files);
 	afx_msg void OnUpdatePluginUnpackMode(CCmdUI* pCmdUI);
 	afx_msg void OnPluginUnpackMode(UINT nID);
@@ -423,6 +469,8 @@ protected:
 	afx_msg void OnUpdateDiffIgnoreComments(CCmdUI* pCmdUI);
 	afx_msg void OnDiffIgnoreMissingTrailingEol();
 	afx_msg void OnUpdateDiffIgnoreMissingTrailingEol(CCmdUI* pCmdUI);
+	afx_msg void OnDiffIgnoreLineBreaks();
+	afx_msg void OnUpdateDiffIgnoreLineBreaks(CCmdUI* pCmdUI);
 	afx_msg void OnIncludeSubfolders();
 	afx_msg void OnUpdateIncludeSubfolders(CCmdUI* pCmdUI);
 	afx_msg void OnCompareMethod(UINT nID);
@@ -440,24 +488,23 @@ protected:
 	afx_msg void OnTimer(UINT_PTR nIDEvent);
 	afx_msg void OnDestroy();
 	afx_msg void OnAccelQuit();
-	afx_msg LRESULT OnChildFrameAdded(WPARAM wParam, LPARAM lParam);
-	afx_msg LRESULT OnChildFrameRemoved(WPARAM wParam, LPARAM lParam);
-	afx_msg LRESULT OnChildFrameActivate(WPARAM wParam, LPARAM lParam);
-	afx_msg LRESULT OnChildFrameActivated(WPARAM wParam, LPARAM lParam);
 	afx_msg void OnUpdateMenuBarMenuItem(CCmdUI* pCmdUI);
 	afx_msg void OnViewMenuBar();
 	afx_msg void OnUpdateViewMenuBar(CCmdUI* pCmdUI);
 	afx_msg void OnViewOutputBar();
 	afx_msg void OnUpdateViewOutputBar(CCmdUI* pCmdUI);
 	afx_msg void OnSysCommand(UINT nID, LPARAM lParam);
+	afx_msg void OnSettingChange(UINT uFlags, LPCTSTR lpszSection);
+	afx_msg void OnMergingMode();
+	afx_msg void OnUpdateMergingMode(CCmdUI* pCmdUI);
+	afx_msg void OnUpdateMergingStatus(CCmdUI* pCmdUI);
+	afx_msg void OnStatusBarClick(NMHDR* pNMHDR, LRESULT* pResult);
+	afx_msg LRESULT OnMDIButtonContextMenu(WPARAM wParam, LPARAM lParam);
 	//}}AFX_MSG
 	DECLARE_MESSAGE_MAP()
 
 private:
-	void addToMru(const tchar_t* szItem, const tchar_t* szRegSubKey, UINT nMaxItems = 20);
 	OpenDocList &GetAllOpenDocs();
-	MergeDocList &GetAllMergeDocs();
-	DirDocList &GetAllDirDocs();
 	HexMergeDocList &GetAllHexMergeDocs();
 	std::vector<CImgMergeFrame *> GetAllImgMergeFrames();
 	std::vector<CWebPageDiffFrame *> GetAllWebPageDiffFrames();
@@ -473,4 +520,5 @@ private:
 	void ProcessLog();
 	std::unique_ptr<WCHAR[]> m_upszLongTextW;
 	std::unique_ptr<CHAR[]> m_upszLongTextA;
+	HICON m_hIconPlugin;
 };

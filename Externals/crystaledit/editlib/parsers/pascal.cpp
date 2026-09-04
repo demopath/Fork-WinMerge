@@ -115,7 +115,7 @@ IsPascalKeyword (const tchar_t *pszChars, int nLength)
 }
 
 static inline void
-DefineIdentiferBlock(const tchar_t *pszChars, int nLength, CrystalLineParser::TEXTBLOCK * pBuf, int &nActualItems, int nIdentBegin, int I)
+DefineIdentiferBlock(const tchar_t *pszChars, int nLength, std::vector<CrystalLineParser::TEXTBLOCK>* pBuf, int nIdentBegin, int I)
 {
   if (IsPascalKeyword (pszChars + nIdentBegin, I - nIdentBegin))
     {
@@ -148,7 +148,7 @@ DefineIdentiferBlock(const tchar_t *pszChars, int nLength, CrystalLineParser::TE
 }
 
 unsigned
-CrystalLineParser::ParseLinePascal (unsigned dwCookie, const tchar_t *pszChars, int nLength, TEXTBLOCK * pBuf, int &nActualItems)
+CrystalLineParser::ParseLinePascal (unsigned dwCookie, const tchar_t *pszChars, int nLength, std::vector<TEXTBLOCK>* pBuf)
 {
   if (nLength == 0)
     return dwCookie & (COOKIE_EXT_COMMENT | COOKIE_EXT_COMMENT2 | COOKIE_RAWSTRING);
@@ -175,6 +175,10 @@ CrystalLineParser::ParseLinePascal (unsigned dwCookie, const tchar_t *pszChars, 
           if (dwCookie & (COOKIE_COMMENT | COOKIE_EXT_COMMENT | COOKIE_EXT_COMMENT2))
             {
               DEFINE_BLOCK (nPos, COLORINDEX_COMMENT);
+            }
+          else if (dwCookie & (COOKIE_PREPROCESSOR))
+            {
+              DEFINE_BLOCK (nPos, COLORINDEX_PREPROCESSOR);
             }
           else if (dwCookie & (COOKIE_CHAR | COOKIE_STRING | COOKIE_RAWSTRING))
             {
@@ -326,6 +330,22 @@ out:
           continue;
         }
 
+      //  Compiler directives {$....} or (*$...*)
+      if (dwCookie & COOKIE_PREPROCESSOR)
+        {
+          if (pszChars[I] == '}')
+            {
+              dwCookie &= ~COOKIE_PREPROCESSOR;
+              bRedefineBlock = true;
+            }
+          else if ((I > 1 && pszChars[I] == ')' && pszChars[nPrevI] == '*' && *tc::tcharprev(pszChars, pszChars + nPrevI) != '(') || (I == 1 && pszChars[I] == ')' && pszChars[nPrevI] == '*'))
+            {
+              dwCookie &= ~COOKIE_PREPROCESSOR;
+              bRedefineBlock = true;
+            }
+          continue;
+        }
+
       if (I > 0 && pszChars[I] == '/' && pszChars[nPrevI] == '/')
         {
           DEFINE_BLOCK (nPrevI, COLORINDEX_COMMENT);
@@ -352,13 +372,27 @@ out:
         }
       if (I > 0 && pszChars[I] == '*' && pszChars[nPrevI] == '(') // (*
         {
+          if (I + 1 < nLength && pszChars[I + 1] == '$') // (*$
+            {
+              //  Compiler directives (*$....*)
+              DEFINE_BLOCK (I, COLORINDEX_PREPROCESSOR);
+              dwCookie |= COOKIE_PREPROCESSOR;
+              continue;
+            }
           DEFINE_BLOCK (nPrevI, COLORINDEX_COMMENT);
           dwCookie |= COOKIE_EXT_COMMENT;
           continue;
         }
 
-      if (pszChars[I] == '{')
+      if (pszChars[I] == '{') // {
         {
+          if (I + 1 < nLength && pszChars[I + 1] == '$') // {$
+            {
+              //  Compiler directives {$....}
+              DEFINE_BLOCK (I, COLORINDEX_PREPROCESSOR);
+              dwCookie |= COOKIE_PREPROCESSOR;
+              continue;
+            }
           DEFINE_BLOCK (I, COLORINDEX_COMMENT);
           dwCookie |= COOKIE_EXT_COMMENT2;
           continue;
@@ -377,7 +411,7 @@ out:
         {
           if (nIdentBegin >= 0)
             {
-              DefineIdentiferBlock(pszChars, nLength, pBuf, nActualItems, nIdentBegin, I);
+              DefineIdentiferBlock(pszChars, nLength, pBuf, nIdentBegin, I);
               bRedefineBlock = true;
               bDecIndex = true;
               nIdentBegin = -1;
@@ -387,7 +421,7 @@ out:
 
   if (nIdentBegin >= 0)
     {
-      DefineIdentiferBlock(pszChars, nLength, pBuf, nActualItems, nIdentBegin, I);
+      DefineIdentiferBlock(pszChars, nLength, pBuf, nIdentBegin, I);
     }
 
   if (pszChars[nLength - 1] != '\\' || IsMBSTrail(pszChars, nLength - 1))

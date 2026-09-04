@@ -26,6 +26,35 @@
 //  MATLAB keywords
 static const tchar_t * s_apszMatlabKeywordList[] =
   {
+    _T("arguments"),
+    _T("break"),
+    _T("case"),
+    _T("catch"),
+    _T("classdef"),
+    _T("continue"),
+    _T("else"),
+    _T("elseif"),
+    _T("end"),
+    _T("enumeration"),
+    _T("events"),
+    _T("for"),
+    _T("function"),
+    _T("global"),
+    _T("if"),
+    _T("methods"),
+    _T("otherwise"),
+    _T("parfor"),
+    _T("persistent"),
+    _T("properties"),
+    _T("return"),
+    _T("spmd"),
+    _T("switch"),
+    _T("try"),
+    _T("while"),
+  };
+
+static const tchar_t * s_apszUser1KeywordList[] =
+  {
     _T("AbortSet"),
     _T("Abstract"),
     _T("Access"),
@@ -34,57 +63,13 @@ static const tchar_t * s_apszMatlabKeywordList[] =
     _T("GetAccess"),
     _T("GetObservable"),
     _T("Hidden"),
-    _T("NonCopyable"),    
+    _T("NonCopyable"),
     _T("PartialMatchPriority"),
     _T("SetAccess"),
-    _T("SetObservable"),    
+    _T("SetObservable"),
     _T("Static"),
-    _T("Transient"),    
-    _T("arguments"),
-    _T("break"),
-    _T("case"),
-    _T("catch"),
-    _T("cell"),
-    _T("char"),
-    _T("classdef"),
-    _T("continue"),
-    _T("double"),
-    _T("else"),
-    _T("elseif"),
-    _T("end"),
-    _T("enumeration"),
-    _T("events"),
-    _T("for"),
-    _T("function"),
-    _T("function_handle"),
-    _T("global"),
-    _T("if"),
-    _T("int16"),
-    _T("int32"),
-    _T("int64"),
-    _T("int8"),
-    _T("logical"),
-    _T("methods"),
-    _T("otherwise"),
-    _T("parfor"),
-    _T("persistent"),
-    _T("properties"),
-    _T("return"),
-    _T("single"),
-    _T("string"),
-    _T("struct"),
-    _T("switch"),
-    _T("table"),
-    _T("throw"),
-    _T("timetable"),
-    _T("try"),
-    _T("uint16"),
-    _T("uint32"),
-    _T("uint64"),
-    _T("uint8"),
-    _T("while"),
+    _T("Transient"),
   };
-
 
 static bool
 IsMatlabKeyword (const tchar_t *pszChars, int nLength)
@@ -92,12 +77,22 @@ IsMatlabKeyword (const tchar_t *pszChars, int nLength)
   return ISXKEYWORD (s_apszMatlabKeywordList, pszChars, nLength);
 }
 
+static bool
+IsUser1Keyword (const tchar_t *pszChars, int nLength)
+{
+  return ISXKEYWORD (s_apszUser1KeywordList, pszChars, nLength);
+}
+
 static inline void
-DefineIdentiferBlock(const tchar_t *pszChars, int nLength, CrystalLineParser::TEXTBLOCK * pBuf, int &nActualItems, int nIdentBegin, int I)
+DefineIdentiferBlock(const tchar_t *pszChars, int nLength, std::vector<CrystalLineParser::TEXTBLOCK>* pBuf, int nIdentBegin, int I)
 {
   if (IsMatlabKeyword (pszChars + nIdentBegin, I - nIdentBegin))
     {
       DEFINE_BLOCK (nIdentBegin, COLORINDEX_KEYWORD);
+    }
+  if (IsUser1Keyword (pszChars + nIdentBegin, I - nIdentBegin))
+    {
+      DEFINE_BLOCK (nIdentBegin, COLORINDEX_USER1);
     }
   else if (CrystalLineParser::IsXNumber (pszChars + nIdentBegin, I - nIdentBegin))
     {
@@ -126,7 +121,7 @@ DefineIdentiferBlock(const tchar_t *pszChars, int nLength, CrystalLineParser::TE
 }
 
 unsigned
-CrystalLineParser::ParseLineMatlab (unsigned dwCookie, const tchar_t *pszChars, int nLength, TEXTBLOCK * pBuf, int &nActualItems)
+CrystalLineParser::ParseLineMatlab (unsigned dwCookie, const tchar_t *pszChars, int nLength, std::vector<TEXTBLOCK>* pBuf)
 {
   if (nLength == 0)
     return dwCookie & (COOKIE_EXT_COMMENT | 0xFF000000);
@@ -296,7 +291,7 @@ out:
         {
           if (nIdentBegin >= 0)
             {
-              DefineIdentiferBlock(pszChars, nLength, pBuf, nActualItems, nIdentBegin, I);
+              DefineIdentiferBlock(pszChars, nLength, pBuf, nIdentBegin, I);
               bRedefineBlock = true;
               bDecIndex = true;
               nIdentBegin = -1;
@@ -306,7 +301,7 @@ out:
 
   if (nIdentBegin >= 0)
     {
-      DefineIdentiferBlock(pszChars, nLength, pBuf, nActualItems, nIdentBegin, I);
+      DefineIdentiferBlock(pszChars, nLength, pBuf, nIdentBegin, I);
     }
 
   dwCookie &= COOKIE_EXT_COMMENT | 0xFF000000;

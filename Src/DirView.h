@@ -15,6 +15,7 @@
 #include <afxcview.h>
 #include <memory>
 #include <optional>
+#include <unordered_map>
 #include "OptionsDirColors.h"
 #include "SortHeaderCtrl.h"
 #include "UnicodeString.h"
@@ -22,6 +23,7 @@
 #include "DirActions.h"
 #include "IListCtrlImpl.h"
 #include "FileOpenFlags.h"
+#include "7zCommon.h"
 
 class FileActionScript;
 
@@ -42,6 +44,25 @@ class CDiffContext;
 class DirViewColItems;
 class DirItemEnumerator;
 struct IListCtrl;
+class CFileFilterHelperMenu;
+
+/**
+ * @brief Flags controlling CDirView::OnCtxtDirZip() / CreateZipItems() behavior.
+ *        (Moved out of the Merge7z adapter class, since that class no longer
+ *        knows anything about WinMerge's directory-compare domain.)
+ */
+namespace DirViewZipFlags
+{
+	enum
+	{
+		Left = 0x0000,
+		Right = 0x0001,
+		Middle = 0x0002,
+		Original = 0x0004,
+		Altered = 0x0008,
+		DiffsOnly = 0x0020,
+	};
+}
 
 /**
  * @brief Position value for special items (..) in directory compare view.
@@ -65,7 +86,6 @@ constexpr int DefColumnWidth = 111;
 class CDirView : public CListView
 {
 	friend struct FileCmpReport;
-	friend DirItemEnumerator;
 protected:
 	CDirView();           // protected constructor used by dynamic creation
 	DECLARE_DYNCREATE(CDirView)
@@ -86,6 +106,8 @@ public:
 	void StartCompare(CompareStats *pCompareStats);
 	void Redisplay();
 	int RedisplayChildren(DIFFITEM *diffpos, int level, UINT &index, int &alldiffs);
+	DirViewUIState* SaveUIState();
+	void RestoreUIState(const DirViewUIState* pUIState);
 	void UpdateResources();
 	void LoadColumnHeaderItems();
 	DIFFITEM *GetItemKey(int idx) const;
@@ -135,8 +157,9 @@ private:
 	void DoOpenWith(SIDE_TYPE stype);
 	void DoOpenWithEditor(SIDE_TYPE stype);
 	void DoOpenParentFolder(SIDE_TYPE stype);
+	bool AreItemsComparable(SELECTIONTYPE selectionType, bool openableForDir = true);
+	bool AreItemsComparableIndivisually(UINT nID, bool openableForDir);
 	void DoUpdateOpen(SELECTIONTYPE selectionType, CCmdUI* pCmdUI, bool openableForDir = true);
-	void RemoveDuplicatedActions(FileActionScript & actions);
 	void ConfirmAndPerformActions(FileActionScript & actions);
 	void PerformActionList(FileActionScript & actions);
 	void UpdateAfterFileScript(FileActionScript & actionList);
@@ -144,6 +167,7 @@ private:
 
 // End DirActions.cpp
 	void ReflectGetdispinfo(NMLVDISPINFO *);
+	bool HasShowableDescendant(DIFFITEM *parent);
 
 // Implementation in DirViewColHandler.cpp
 public:
@@ -214,6 +238,7 @@ protected:
 	std::optional<int> m_firstDiffItem;
 	std::optional<int> m_lastDiffItem;
 	DIRCOLORSETTINGS m_cachedColors; /**< Cached color settings */
+	std::unordered_map<DIFFITEM*, bool> m_hasShowableDescendantCache;
 	bool m_bUseColors;
 
 	std::unique_ptr<CShellContextMenu> m_pShellContextMenuLeft; /**< Shell context menu for group of left files */
@@ -222,7 +247,9 @@ protected:
 	std::unique_ptr<CShellContextMenu> m_pShellContextMenuBoth; /**< Shell context menu for group of both files */
 	HMENU m_hCurrentMenu; /**< Current shell context menu (either left or right) */
 	std::unique_ptr<DirViewTreeState> m_pSavedTreeState;
+	std::unique_ptr<DirViewUIState> m_pSavedUIState;
 	std::unique_ptr<DirViewColItems> m_pColItems;
+	std::unique_ptr<CFileFilterHelperMenu> m_pFilterMenu;
 	int m_nActivePane;
 
 	// Generated message map functions
@@ -231,6 +258,8 @@ protected:
 	//{{AFX_MSG(CDirView)
 	afx_msg void OnLButtonDblClk(UINT nFlags, CPoint point);
 	afx_msg void OnDirCopy(UINT id);
+	afx_msg std::optional<bool> PromptCopyOnlyDiffItems();
+	afx_msg std::optional<bool> PromptPatchOnlyDiffItems();
 	template<SIDE_TYPE srctype, SIDE_TYPE dsttype>
 	afx_msg void OnCtxtDirCopy();
 	afx_msg void OnUpdateDirCopy(CCmdUI* pCmdUI);
@@ -289,6 +318,7 @@ protected:
 	afx_msg void OnRefresh();
 	afx_msg void OnUpdateRefresh(CCmdUI* pCmdUI);
 	afx_msg void OnTimer(UINT_PTR nIDEvent);
+    afx_msg void OnSettingChange(UINT uFlags, LPCTSTR lpszSection);
 	afx_msg void OnEditColumns();
 	template<SIDE_TYPE stype>
 	afx_msg void OnReadOnly();
@@ -341,6 +371,8 @@ protected:
 	afx_msg void OnUpdateViewShowHiddenItems(CCmdUI* pCmdUI);
 	afx_msg void OnViewTreeMode();
 	afx_msg void OnUpdateViewTreeMode(CCmdUI* pCmdUI);
+	afx_msg void OnViewShowEmptyFolders();
+	afx_msg void OnUpdateViewShowEmptyFolders(CCmdUI* pCmdUI);
 	afx_msg void OnViewExpandAllSubdirs();
 	afx_msg void OnViewExpandDifferentSubdirs();
 	afx_msg void OnViewExpandIdenticalSubdirs();
@@ -380,6 +412,7 @@ protected:
 	afx_msg void OnUpdateOptionsShowMissingMiddleOnly(CCmdUI* pCmdUI);
 	afx_msg void OnUpdateOptionsShowMissingRightOnly(CCmdUI* pCmdUI);
 	afx_msg void OnMergeCompare(UINT nID);
+	afx_msg void OnMergeCompareWithRenamedMoved();
 	template<SELECTIONTYPE seltype>
 	afx_msg void OnMergeCompare2() { OpenSelection(seltype); }
 	afx_msg void OnMergeCompareNonHorizontally();
@@ -401,9 +434,11 @@ protected:
 	afx_msg void OnEndLabelEdit(NMHDR* pNMHDR, LRESULT* pResult);
 	afx_msg void OnODFindItem(NMHDR* pNMHDR, LRESULT* pResult);
 	afx_msg void OnCustomDraw(NMHDR* pNMHDR, LRESULT* pResult);
-	afx_msg void OnSearch();
 	afx_msg void OnBeginDrag(NMHDR* pNMHDR, LRESULT* pResult);
 	afx_msg void OnStatusBarClick(NMHDR* pNMHDR, LRESULT* pResult);
+	afx_msg void OnViewDisplayFilterBarApply();
+	afx_msg void OnViewDisplayFilterBar();
+	afx_msg void OnFilterMenuCommand(UINT nID);
 
 	//}}AFX_MSG
 	DECLARE_MESSAGE_MAP()
@@ -415,8 +450,10 @@ protected:
 private:
 	void Open(CDirDoc *pDoc, const PathContext& paths, fileopenflags_t dwFlags[3], FileTextEncoding encoding[3], PackingInfo * infoUnpacker = nullptr);
 	void OpenSelection(CDirDoc *pDoc, SELECTIONTYPE selectionType = SELECTIONTYPE_NORMAL, PackingInfo * infoUnpacker = nullptr, bool openableForDir = true);
+	void OpenSelection(int sel1, int sel2, int sel3, CDirDoc* pDoc, SELECTIONTYPE selectionType = SELECTIONTYPE_NORMAL, PackingInfo* infoUnpacker = nullptr, bool openableForDir = true);
 	void OpenSelection(SELECTIONTYPE selectionType = SELECTIONTYPE_NORMAL, PackingInfo * infoUnpacker = nullptr, bool openableForDir = true);
 	void OpenSelectionAs(UINT id);
+	void OpenSelectionAs(int sel1, int sel2, int sel3, UINT id);
 	bool GetSelectedItems(int * sel1, int * sel2, int * sel3);
 	void OpenParentDirectory(CDirDoc *pDocOpen);
 	template<SIDE_TYPE srctype, SIDE_TYPE dsttype>

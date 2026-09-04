@@ -7,6 +7,8 @@
 #include "UniFile.h"
 #include "LineFiltersList.h"
 #include "SubstitutionFiltersList.h"
+#include "SyntaxParserRegistry.h"
+#include "CrystalLineSyntaxParser.h"
 
 const TempFile WriteToTempFile(const String& text)
 {
@@ -213,11 +215,108 @@ TEST(DiffWrapper, RunFileDiff_IgnoreMissingTrailingEol)
 	}
 }
 
+TEST(DiffWrapper, RunFileDiff_IgnoreLineBreaks)
+{
+	CDiffWrapper dw;
+	DIFFOPTIONS options{};
+	DIFFRANGE dr;
+
+	LangServices::SyntaxParserRegistry::GetInstance().RegisterFactory(&CrystalLineSyntaxParserFactory::GetInstance());
+
+	options.bIgnoreLineBreaks = true;
+	for (auto algo : { DIFF_ALGORITHM_DEFAULT, DIFF_ALGORITHM_MINIMAL, DIFF_ALGORITHM_PATIENCE, DIFF_ALGORITHM_HISTOGRAM, DIFF_ALGORITHM_NONE })
+	{
+		options.nDiffAlgorithm = algo;
+		options.bFilterCommentsLines = false;
+
+		options.nIgnoreWhitespace = WHITESPACE_COMPARE_ALL;
+		{
+			DiffList diffList;
+			TempFile left = WriteToTempFile(_T("0\na\r\nb\rc\n"));
+			TempFile right = WriteToTempFile(_T("0\na b c\n"));
+			dw.SetCreateDiffList(&diffList);
+			dw.SetPaths({ left.GetPath(), right.GetPath() }, false);
+			dw.SetFilterCommentsSourceDef(_T("cpp"));
+			dw.SetOptions(&options);
+			dw.RunFileDiff();
+			EXPECT_EQ(1, diffList.GetSize());
+			diffList.GetDiff(0, dr);
+			EXPECT_EQ(1, dr.begin[0]);
+			EXPECT_EQ(1, dr.begin[1]);
+			EXPECT_EQ(3, dr.end[0]);
+			EXPECT_EQ(1, dr.end[1]);
+			EXPECT_EQ(OP_TRIVIAL, dr.op);
+		}
+
+		options.nIgnoreWhitespace = WHITESPACE_IGNORE_CHANGE;
+		{
+			DiffList diffList;
+			TempFile left = WriteToTempFile(_T("0\na\r\n b\r  c\n"));
+			TempFile right = WriteToTempFile(_T("0\na b c\n"));
+			dw.SetCreateDiffList(&diffList);
+			dw.SetPaths({ left.GetPath(), right.GetPath() }, false);
+			dw.SetFilterCommentsSourceDef(_T("cpp"));
+			dw.SetOptions(&options);
+			dw.RunFileDiff();
+			EXPECT_EQ(1, diffList.GetSize());
+			diffList.GetDiff(0, dr);
+			EXPECT_EQ(1, dr.begin[0]);
+			EXPECT_EQ(1, dr.begin[1]);
+			EXPECT_EQ(3, dr.end[0]);
+			EXPECT_EQ(1, dr.end[1]);
+			EXPECT_EQ(OP_TRIVIAL, dr.op);
+		}
+
+		options.nIgnoreWhitespace = WHITESPACE_IGNORE_ALL;
+		{
+			DiffList diffList;
+			TempFile left = WriteToTempFile(_T("0\na\r\nb\rc\n"));
+			TempFile right = WriteToTempFile(_T("0\nabc\n"));
+			dw.SetCreateDiffList(&diffList);
+			dw.SetPaths({ left.GetPath(), right.GetPath() }, false);
+			dw.SetFilterCommentsSourceDef(_T("cpp"));
+			dw.SetOptions(&options);
+			dw.RunFileDiff();
+			EXPECT_EQ(1, diffList.GetSize());
+			diffList.GetDiff(0, dr);
+			EXPECT_EQ(1, dr.begin[0]);
+			EXPECT_EQ(1, dr.begin[1]);
+			EXPECT_EQ(3, dr.end[0]);
+			EXPECT_EQ(1, dr.end[1]);
+			EXPECT_EQ(OP_TRIVIAL, dr.op);
+		}
+
+		options.nIgnoreWhitespace = WHITESPACE_COMPARE_ALL;
+		options.bFilterCommentsLines = true;
+		{
+			DiffList diffList;
+			TempFile left = WriteToTempFile(_T("0\na\r\n/*b*/\rc\n"));
+			TempFile right = WriteToTempFile(_T("0\na /*bb*/ c\n"));
+			dw.SetCreateDiffList(&diffList);
+			dw.SetPaths({ left.GetPath(), right.GetPath() }, false);
+			dw.SetFilterCommentsSourceDef(_T("cpp"));
+			dw.SetOptions(&options);
+			dw.RunFileDiff();
+			EXPECT_EQ(1, diffList.GetSize());
+			diffList.GetDiff(0, dr);
+			EXPECT_EQ(1, dr.begin[0]);
+			EXPECT_EQ(1, dr.begin[1]);
+			EXPECT_EQ(3, dr.end[0]);
+			EXPECT_EQ(1, dr.end[1]);
+			EXPECT_EQ(OP_TRIVIAL, dr.op);
+		}
+	}
+
+	LangServices::SyntaxParserRegistry::GetInstance().UnregisterFactory(&CrystalLineSyntaxParserFactory::GetInstance());
+}
+
 TEST(DiffWrapper, RunFileDiff_IgnoreComments)
 {
 	CDiffWrapper dw;
 	DIFFOPTIONS options{};
 	DIFFRANGE dr;
+
+	LangServices::SyntaxParserRegistry::GetInstance().RegisterFactory(&CrystalLineSyntaxParserFactory::GetInstance());
 
 	for (auto algo : { DIFF_ALGORITHM_DEFAULT, DIFF_ALGORITHM_MINIMAL, DIFF_ALGORITHM_PATIENCE, DIFF_ALGORITHM_HISTOGRAM })
 	{
@@ -284,6 +383,8 @@ TEST(DiffWrapper, RunFileDiff_IgnoreComments)
 			EXPECT_EQ(1, dr.end[1]);
 		}
 	}
+
+	LangServices::SyntaxParserRegistry::GetInstance().UnregisterFactory(&CrystalLineSyntaxParserFactory::GetInstance());
 }
 
 TEST(DiffWrapper, RunFileDiff_LineFilters)

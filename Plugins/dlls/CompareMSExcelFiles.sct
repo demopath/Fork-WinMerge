@@ -32,7 +32,7 @@
 /*
     This is a plugin for WinMerge.
     It will display the text content of MS Excel files.
-    Copyright (C) 2005-2024 Takashi Sawanaka
+    Copyright (C) 2005-2025 Takashi Sawanaka
 
     This program is free software; you can redistribute it and/or modify
     it under the terms of the GNU General Public License as published by
@@ -168,17 +168,25 @@ function writeFormulas(fo, sht) {
   var row, col, formula;
   var rowOffset = sht.UsedRange.Row;
   var colOffset = sht.UsedRange.Column;
+  var replaceLineBreaks = regRead(REGKEY_PATH + "CompareFormulasReplaceLineBreaks", false);
   try {
     var varCells = sht.UsedRange.Formula;
     if (typeof(varCells) === "string" || typeof(varCells) === "number" || typeof(varCells) === "date") {
-      fo.WriteLine(getAddr(1 + rowOffset - 1, 1 + colOffset - 1) + ": " + varCells);
+      var outFormula = String(varCells);
+      if (replaceLineBreaks) {
+        outFormula = outFormula.replace(/[\r\n]+/g, " ");
+      }
+      fo.WriteLine(getAddr(1 + rowOffset - 1, 1 + colOffset - 1) + ": " + outFormula);
     } else {
       try {
         for (var row = 1; row <= varCells.ubound(1); row++) {
           for (var col = 1; col <= varCells.ubound(2); col++) {
             try {
               var formula = varCells.getItem(row, col);
-              if (typeof(formula) === "string" && formula.charAt(0) === "=") { 
+              if (typeof(formula) === "string" && formula.charAt(0) === "=") {
+                if (replaceLineBreaks) {
+                  formula = formula.replace(/[\r\n]+/g, " ");
+                }
                 fo.WriteLine(getAddr(row + rowOffset - 1, col + colOffset - 1) + ": " + formula);
               }
             } catch (e) {
@@ -588,42 +596,46 @@ function UnpackFolder(fileSrc, folderDst, pbChanged, pSubcode) {
   digit = String(wbk.Worksheets.Count).length;
   if (digit <= 0) { digit = 1; }
   var zf = Array(digit + 1).join("0");
- 
+
+  var includeSheetOrderNumber = regRead(REGKEY_PATH + "IncludeSheetOrderNumber", true);
+  var prefixForGlobal = includeSheetOrderNumber ? "(" + zf + ")" : "";
+
   if (regRead(REGKEY_PATH + "CompareDocumentProperties", false)) {
-    var fo = fso.CreateTextFile(fso.BuildPath(folderDst, "(" + zf + ")DocumentProperties.txt"), true, true);
+    var fo = fso.CreateTextFile(fso.BuildPath(folderDst, prefixForGlobal + "DocumentProperties.txt"), true, true);
     writeObjectProperties(fo, wbk.BuiltinDocumentProperties);
     fo.Close();
     fo = null;
   }
- 
+
   if (regRead(REGKEY_PATH + "CompareNames", true)) {
-    var fo = fso.CreateTextFile(fso.BuildPath(folderDst, "(" + zf + ")Names.txt"), true, true);
+    var fo = fso.CreateTextFile(fso.BuildPath(folderDst, prefixForGlobal + "Names.txt"), true, true);
     writeObjectProperties(fo, wbk.Names);
     fo.Close();
     fo = null;
   }
- 
+
   var No = 1;
   for (var it = new Enumerator(wbk.Worksheets); !it.atEnd(); it.moveNext()) {
     var sht = it.item();
     No = zf + No;
     No = No.substr(No.length - digit, digit);
+    var prefix = includeSheetOrderNumber ? "(" + No + ")" : "";
     if (regRead(REGKEY_PATH + "CompareCellValues", true)) {
-      var fo = fso.CreateTextFile(fso.BuildPath(folderDst, "(" + No + ")" + escape(sht.Name) + ".tsv"), true, true);
+      var fo = fso.CreateTextFile(fso.BuildPath(folderDst, prefix + escape(sht.Name) + ".tsv"), true, true);
       writeCellValues(fo, sht);
       fo.Close();
       fo = null;
     }
  
     if (regRead(REGKEY_PATH + "CompareFormulas", false)) {
-      var fo = fso.CreateTextFile(fso.BuildPath(folderDst, "(" + No + ")" + escape(sht.Name) + "_Formulas.txt"), true, true);
+      var fo = fso.CreateTextFile(fso.BuildPath(folderDst, prefix + escape(sht.Name) + "_Formulas.txt"), true, true);
       writeFormulas(fo, sht);
       fo.Close();
       fo = null;
     }
  
     if (regRead(REGKEY_PATH + "CompareTextsInShapes", true)) {
-      var fo = fso.CreateTextFile(fso.BuildPath(folderDst, "(" + No + ")" + escape(sht.Name) + "_Shapes.txt"), true, true);
+      var fo = fso.CreateTextFile(fso.BuildPath(folderDst, prefix + escape(sht.Name) + "_Shapes.txt"), true, true);
       ungroupShapes(sht);
       writeTextsInShapes(fo, sht);
       fo.Close();
@@ -631,18 +643,18 @@ function UnpackFolder(fileSrc, folderDst, pbChanged, pSubcode) {
     }
  
     if (regRead(REGKEY_PATH + "CompareHeadersAndFooters", true)) {
-      var fo = fso.CreateTextFile(fso.BuildPath(folderDst, "(" + No + ")" + escape(sht.Name) + "_HeadersAndFooters.txt"), true, true);
+      var fo = fso.CreateTextFile(fso.BuildPath(folderDst, prefix + escape(sht.Name) + "_HeadersAndFooters.txt"), true, true);
       writeHeadersAndFooters(fo, sht);
       fo.Close();
       fo = null;
     }
  
     if (regRead(REGKEY_PATH + "CompareWorksheetsAsImage", true)) {
-      saveSheetAsImage(sht, fso.BuildPath(folderDst, "(" + No + ")" + escape(sht.Name)));
+      saveSheetAsImage(sht, fso.BuildPath(folderDst, prefix + escape(sht.Name)));
     }
  
     if (regRead(REGKEY_PATH + "CompareWorksheetsAsHTML", false)) {
-      saveSheetAsHTML(sht, fso.BuildPath(folderDst, "(" + No + ")" + escape(sht.Name) + ".html"));
+      saveSheetAsHTML(sht, fso.BuildPath(folderDst, prefix + escape(sht.Name) + ".html"));
     }
     No = parseInt(No, 10) + 1;
     sht = null;
@@ -717,6 +729,7 @@ function run(sh, cmd) {
 function exportSettingsToXMLFile(filepath) {
   var key_defvalues = {
     "UnpackToFolder" : false,
+    "IncludeSheetOrderNumber" : true,
     "UpdateLinks" : false,
     "CompareDocumentProperties" : false,
     "CompareNames" : true,
@@ -726,6 +739,7 @@ function exportSettingsToXMLFile(filepath) {
     "ImageWidth" : 1000,
     "ImageHeight" : 3000,
     "CompareFormulas" : false,
+    "CompareFormulasReplaceLineBreaks" : false, 
     "CompareTextsInShapes" : true,
     "CompareHeadersAndFooters" : true,
     "CompareVBAMacros" : true
@@ -838,11 +852,12 @@ function importSettingsFromXMLFile(filepath) {
         settings = loadSettingsFromXMLFile(xmlFilePath);
 
         var dpi = window.screen.deviceXDPI;
-        var w = 600 * dpi / 96, h = 500 * dpi / 96;
+        var w = 600 * dpi / 96, h = 560 * dpi / 96;
         window.resizeTo(w, h);
         window.moveTo((screen.width - w) / 2, (screen.height - h) / 2);
 
         chkUnpackToFolder.checked = regRead(REGKEY_PATH + "UnpackToFolder", false);
+        chkIncludeSheetOrderNumber.checked = regRead(REGKEY_PATH + "IncludeSheetOrderNumber", true);
         chkUpdateLinks.checked = (regRead(REGKEY_PATH + "UpdateLinks", 0) == 3);
         chkCompareDocumentProperties.checked = regRead(REGKEY_PATH + "CompareDocumentProperties", false);
         chkCompareNames.checked = regRead(REGKEY_PATH + "CompareNames", true);
@@ -852,6 +867,7 @@ function importSettingsFromXMLFile(filepath) {
         txtImageWidth.value = regRead(REGKEY_PATH + "ImageWidth", 1000);
         txtImageHeight.value = regRead(REGKEY_PATH + "ImageHeight", 3000);
         chkCompareFormulas.checked = regRead(REGKEY_PATH + "CompareFormulas", false);
+        chkCompareFormulasBrks.checked = regRead(REGKEY_PATH + "CompareFormulasReplaceLineBreaks", false);
         chkCompareTextsInShapes.checked = regRead(REGKEY_PATH + "CompareTextsInShapes", true);
         chkCompareHeadersAndFooters.checked = regRead(REGKEY_PATH + "CompareHeadersAndFooters", true);
         chkCompareVBAMacros.checked = regRead(REGKEY_PATH + "CompareVBAMacros", true);
@@ -886,9 +902,10 @@ function importSettingsFromXMLFile(filepath) {
         if (chkCompareWorksheetsAsHTML.checked)
           chkUnpackToFolder.checked = true;
       }
-
+	  
       function btnOk_onclick() {
         regWrite(REGKEY_PATH + "UnpackToFolder", chkUnpackToFolder.checked, "REG_DWORD");
+        regWrite(REGKEY_PATH + "IncludeSheetOrderNumber", chkIncludeSheetOrderNumber.checked, "REG_DWORD");
         regWrite(REGKEY_PATH + "UpdateLinks", chkUpdateLinks.checked ? 3 : 0, "REG_DWORD");
         regWrite(REGKEY_PATH + "CompareDocumentProperties", chkCompareDocumentProperties.checked, "REG_DWORD");
         regWrite(REGKEY_PATH + "CompareNames", chkCompareNames.checked, "REG_DWORD");
@@ -898,6 +915,7 @@ function importSettingsFromXMLFile(filepath) {
         regWrite(REGKEY_PATH + "ImageWidth", Number(txtImageWidth.value), "REG_DWORD");
         regWrite(REGKEY_PATH + "ImageHeight", Number(txtImageHeight.value), "REG_DWORD");
         regWrite(REGKEY_PATH + "CompareFormulas", chkCompareFormulas.checked, "REG_DWORD");
+        regWrite(REGKEY_PATH + "CompareFormulasReplaceLineBreaks", chkCompareFormulasBrks.checked, "REG_DWORD");
         regWrite(REGKEY_PATH + "CompareTextsInShapes", chkCompareTextsInShapes.checked, "REG_DWORD");
         regWrite(REGKEY_PATH + "CompareHeadersAndFooters", chkCompareHeadersAndFooters.checked, "REG_DWORD");
         regWrite(REGKEY_PATH + "CompareVBAMacros", chkCompareVBAMacros.checked, "REG_DWORD");
@@ -956,6 +974,12 @@ function importSettingsFromXMLFile(filepath) {
         <li>
           <input id="chkUnpackToFolder" type="checkbox" onclick="chkUnpackToFolder_onclick();"/>
           <label for="chkUnpackToFolder">${Extract workbook data to multiple files}</label>
+          <ul>
+            <li>
+              <input id="chkIncludeSheetOrderNumber" type="checkbox" />
+              <label for="chkIncludeSheetOrderNumber">${Include sheet order number in filename}</label>
+            </li>
+          </ul>
         </li>
         <li>
           <input id="chkUpdateLinks" type="checkbox" />
@@ -992,6 +1016,12 @@ function importSettingsFromXMLFile(filepath) {
         <li>
           <input id="chkCompareFormulas" type="checkbox" />
           <label for="chkCompareFormulas">${Compare formulas}</label>
+          <ul>
+            <li>
+              <input id="chkCompareFormulasBrks" type="checkbox" />
+              <label for="chkCompareFormulasBrks">${Replace line breaks in formulas with spaces}</label>
+            </li>
+          </ul>
         </li>
         <li>
           <input id="chkCompareTextsInShapes" type="checkbox" />

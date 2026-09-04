@@ -218,14 +218,14 @@
       linkend="EditorAddin" /> and <xref linkend="Plugins_datetime" />
       plugins.</para>
 
-      <note>
-        <para>Editor complement plugins are not available in the Folder Compare
-        window.</para>
-      </note>
-    </section>
+        <note>
+          <para>Editor complement plugins are not available in the Folder Compare
+          window.</para>
+        </note>
+      </section>
 
-    <section>
-      <title>Applying unpacker plugins in the Folder Compare window</title>
+      <section>
+        <title>Applying unpacker plugins in the Folder Compare window</title>
 
       <para>Before applying unpacker plugins, you can set its mode to either
       automatic or manual mode.</para>
@@ -362,12 +362,40 @@
 
       <para>In the File Compare window, you can apply a prediffer plugin by
       clicking <menuchoice>
-          <guimenu>Plugins</guimenu>
+           <guimenu>Plugins</guimenu>
 
-          <guisubmenu>Prediffer</guisubmenu>
-        </menuchoice> and choosing one of the plugins in the list. Suggested
+           <guisubmenu>Prediffer</guisubmenu>
+         </menuchoice> and choosing one of the plugins in the list. Suggested
       plugins are indicated at the top of the list. The files are compared again
       after the plugin is applied, so you don't need to rescan the files.</para>
+    </section>
+
+    <section>
+      <title>Using plugin pipelines</title>
+
+      <para>Plugin pipelines allow you to chain multiple plugins and filter 
+      expressions using the pipe character (<keycap>|</keycap>) as a separator. 
+      Plugin pipelines can be used with all plugin types: unpacker, prediffer, 
+      and editor complement plugins.</para>
+
+      <para>Plugins are specified by their names. For example:</para>
+
+      <synopsis>MakeUpper|SortAscending|Replace "AAA" "BBB"</synopsis>
+
+      <para>Filter expressions can also be used in plugin pipelines by prefixing 
+      them with <literal>le:</literal>. For example:</para>
+
+      <synopsis>MakeUpper|le:toUpper(Line)|SortAscending</synopsis>
+
+      <para>See <xref linkend="FilterExpression_Syntax" /> for available filter 
+      expression functions and operators.</para>
+
+      <para>You can specify a plugin pipeline in the <guibutton>Select Plugin</guibutton> 
+      dialog by entering the pipeline expression.</para>
+
+      <para>When a plugin pipeline is already selected, you can append a plugin to 
+      it by holding down the <keycap>Ctrl</keycap> key while clicking the plugin in 
+      a plugin selection menu.</para>
     </section>
   </section>
 
@@ -810,6 +838,72 @@
         </segmentedlist></para>
     </section>
 
+    <section id="Plugins_PrettifyPO">
+      <title>
+        <filename>PrettifyPO<indexterm>
+            <primary>PrettifyPO plugin file</primary></indexterm></filename>
+      </title>
+
+      <para>PO Prettier with gettext msgcat</para>
+
+      <cmdsynopsis sepchar=" ">
+        <command>PrettifyPO</command>
+
+        <arg choice="opt"
+         rep="repeat">
+          <replaceable>arguments</replaceable>
+        </arg>
+      </cmdsynopsis>
+
+      <variablelist>
+        <varlistentry>
+          <term>
+            <option>
+              <replaceable>arguments</replaceable>
+            </option>
+          </term>
+          <listitem>
+            <para>Command line options passed to the msgcat command</para>
+          </listitem>
+        </varlistentry>
+      </variablelist>
+
+      <para>
+        <segmentedlist>
+          <segtitle>Category</segtitle>
+
+          <segtitle>File filter</segtitle>
+
+          <segtitle>Plugin arguments</segtitle>
+
+          <segtitle>Packing</segtitle>
+
+          <segtitle>Settings dialog support</segtitle>
+
+          <segtitle>Dependency</segtitle>
+
+          <seglistitem>
+            <seg>Unpacker</seg>
+
+            <seg>
+              <filename class="extension">*.po</filename>
+              <filename class="extension">*.pot</filename>
+            </seg>
+
+            <seg>Yes</seg>
+
+            <seg>No</seg>
+
+            <seg>No</seg>
+
+            <seg>
+              <ulink url="https://www.gnu.org/software/gettext/">gettext</ulink>
+            </seg>
+          </seglistitem>
+        </segmentedlist>
+      </para>
+    </section>
+
     <section id="Plugins_QueryCSV">
       <title><filename>QueryCSV<indexterm>
           <primary>QueryCSV plugin file</primary>
@@ -1075,6 +1169,72 @@
             <seg><ulink url="https://www.html-tidy.org/">tidy-html5</ulink></seg>
           </seglistitem>
         </segmentedlist></para>
+    </section>
+
+    <section id="Plugins_ValidatePO">
+      <title>
+        <filename>ValidatePO<indexterm>
+            <primary>ValidatePO plugin file</primary></indexterm></filename>
+      </title>
+
+      <para>PO Validator with gettext msgfmt</para>
+
+      <cmdsynopsis sepchar=" ">
+        <command>ValidatePO</command>
+
+        <arg choice="opt"
+         rep="repeat">
+          <replaceable>arguments</replaceable>
+        </arg>
+      </cmdsynopsis>
+
+      <variablelist>
+        <varlistentry>
+          <term>
+            <option>
+              <replaceable>arguments</replaceable>
+            </option>
+          </term>
+          <listitem>
+            <para>Command line options passed to the msgfmt command</para>
+          </listitem>
+        </varlistentry>
+      </variablelist>
+
+      <para>
+        <segmentedlist>
+          <segtitle>Category</segtitle>
+
+          <segtitle>File filter</segtitle>
+
+          <segtitle>Plugin arguments</segtitle>
+
+          <segtitle>Packing</segtitle>
+
+          <segtitle>Settings dialog support</segtitle>
+
+          <segtitle>Dependency</segtitle>
+
+          <seglistitem>
+            <seg>Unpacker</seg>
+
+            <seg>
+              <filename class="extension">*.po</filename>
+              <filename class="extension">*.pot</filename>
+            </seg>
+
+            <seg>Yes</seg>
+
+            <seg>No</seg>
+
+            <seg>No</seg>
+
+            <seg>
+              <ulink url="https://www.gnu.org/software/gettext/">gettext</ulink>
+            </seg>
+          </seglistitem>
+        </segmentedlist>
+      </para>
     </section>
 
     <section id="Plugins_PreviewGraphviz">
@@ -1345,6 +1505,59 @@
         </segmentedlist></para>
     </section>
 
+    <section id="Plugins_DecompileJVM">
+      <title><filename>DecompileJVM<indexterm>
+          <primary>DecompileJVM plugin file</primary>
+        </indexterm></filename></title>
+
+      <para>Java decompiler with CFR - decompiles .class files into readable Java source code</para>
+
+      <cmdsynopsis sepchar=" ">
+        <command>DecompileJVM</command>
+
+        <arg choice="opt"
+         rep="repeat"><replaceable>arguments</replaceable></arg>
+      </cmdsynopsis>
+
+      <variablelist>
+        <varlistentry>
+          <term><option><replaceable>arguments</replaceable></option></term>
+          <listitem>
+            <para>Command line options passed to the CFR decompiler</para>
+          </listitem>
+        </varlistentry>
+      </variablelist>
+
+      <para><segmentedlist>
+          <segtitle>Category</segtitle>
+
+          <segtitle>File filter</segtitle>
+
+          <segtitle>Plugin arguments</segtitle>
+
+          <segtitle>Packing</segtitle>
+
+          <segtitle>Settings dialog support</segtitle>
+
+          <segtitle>Dependency</segtitle>
+
+          <seglistitem>
+            <seg>Unpacker</seg>
+
+            <seg><filename class="extension">*.class</filename>
+            </seg>
+
+            <seg>Yes</seg>
+
+            <seg>No</seg>
+
+            <seg>No</seg>
+
+            <seg><ulink url="https://www.java.com/ja/download/ie_manual.jsp">Java</ulink>, <ulink url="https://github.com/leibnitz27/cfr">CFR</ulink></seg>
+          </seglistitem>
+        </segmentedlist></para>
+    </section>
+
     <section id="Plugins_DisassembleIL">
       <title><filename>DisassembleIL<indexterm>
           <primary>DisassembleIL plugin file</primary>
@@ -1453,6 +1666,162 @@
             <seg>No</seg>
 
             <seg><ulink url="https://visualstudio.microsoft.com/">Visual Studio</ulink></seg>
+          </seglistitem>
+        </segmentedlist></para>
+    </section>
+
+    <section id="Plugins_HandleSchemeHTTP">
+      <title><filename>HandleSchemeHTTP<indexterm>
+          <primary>HandleSchemeHTTP plugin file</primary>
+        </indexterm></filename></title>
+
+      <para>HTTP/HTTPS URL Scheme Handler using curl</para>
+
+      <cmdsynopsis sepchar=" ">
+        <command>HandleSchemeHTTP</command>
+
+        <arg choice="opt"
+         rep="repeat"><replaceable>arguments</replaceable></arg>
+      </cmdsynopsis>
+
+      <variablelist>
+        <varlistentry>
+          <term><option><replaceable>arguments</replaceable></option></term>
+          <listitem>
+            <para>Command line options passed to the curl command</para>
+          </listitem>
+        </varlistentry>
+      </variablelist>
+
+      <para><segmentedlist>
+          <segtitle>Category</segtitle>
+
+          <segtitle>File filter</segtitle>
+
+          <segtitle>Plugin arguments</segtitle>
+
+          <segtitle>Packing</segtitle>
+
+          <segtitle>Settings dialog support</segtitle>
+
+          <segtitle>Dependency</segtitle>
+
+          <seglistitem>
+            <seg>URL Handler</seg>
+
+            <seg>^http://.*$, ^https://.*$</seg>
+
+            <seg>Yes</seg>
+
+            <seg>No</seg>
+
+            <seg>No</seg>
+
+            <seg><ulink url="https://curl.se/">curl</ulink></seg>
+          </seglistitem>
+        </segmentedlist></para>
+    </section>
+
+    <section id="Plugins_HandleSchemeReg">
+      <title><filename>HandleSchemeReg<indexterm>
+          <primary>HandleSchemeReg plugin file</primary>
+        </indexterm></filename></title>
+
+      <para>Windows Registry URL Scheme Handler using reg.exe</para>
+
+      <cmdsynopsis sepchar=" ">
+        <command>HandleSchemeReg</command>
+
+        <arg choice="opt"
+         rep="repeat"><replaceable>arguments</replaceable></arg>
+      </cmdsynopsis>
+
+      <variablelist>
+        <varlistentry>
+          <term><option><replaceable>arguments</replaceable></option></term>
+          <listitem>
+            <para>Command line options passed to the reg.exe command</para>
+          </listitem>
+        </varlistentry>
+      </variablelist>
+
+      <para><segmentedlist>
+          <segtitle>Category</segtitle>
+
+          <segtitle>File filter</segtitle>
+
+          <segtitle>Plugin arguments</segtitle>
+
+          <segtitle>Packing</segtitle>
+
+          <segtitle>Settings dialog support</segtitle>
+
+          <segtitle>Dependency</segtitle>
+
+          <seglistitem>
+            <seg>URL Handler</seg>
+
+            <seg>^reg:.*$</seg>
+
+            <seg>Yes</seg>
+
+            <seg>No</seg>
+
+            <seg>No</seg>
+
+            <seg>Windows</seg>
+          </seglistitem>
+        </segmentedlist></para>
+    </section>
+
+    <section id="Plugins_HandleSchemeClipboard">
+      <title><filename>HandleSchemeClipboard<indexterm>
+          <primary>HandleSchemeClipboard plugin file</primary>
+        </indexterm></filename></title>
+
+      <para>Clipboard URL Scheme Handler using cliphcat</para>
+
+      <cmdsynopsis sepchar=" ">
+        <command>HandleSchemeClipboard</command>
+
+        <arg choice="opt"
+         rep="repeat"><replaceable>arguments</replaceable></arg>
+      </cmdsynopsis>
+
+      <variablelist>
+        <varlistentry>
+          <term><option><replaceable>arguments</replaceable></option></term>
+          <listitem>
+            <para>Command line options passed to the cliphcat command</para>
+          </listitem>
+        </varlistentry>
+      </variablelist>
+
+      <para><segmentedlist>
+          <segtitle>Category</segtitle>
+
+          <segtitle>File filter</segtitle>
+
+          <segtitle>Plugin arguments</segtitle>
+
+          <segtitle>Packing</segtitle>
+
+          <segtitle>Settings dialog support</segtitle>
+
+          <segtitle>Dependency</segtitle>
+
+          <seglistitem>
+            <seg>URL Handler</seg>
+
+            <seg>^clip://.*$, ^clipboard://.*$</seg>
+
+            <seg>Yes</seg>
+
+            <seg>No</seg>
+
+            <seg>No</seg>
+
+            <seg>cliphcat</seg>
           </seglistitem>
         </segmentedlist></para>
     </section>
@@ -1831,6 +2200,8 @@
 
         <arg><option>-e</option> <replaceable>patterns</replaceable></arg>
 
+        <arg><option>-F</option> <replaceable>fixed string</replaceable></arg>
+
       </cmdsynopsis>
 
       <variablelist>
@@ -1873,6 +2244,13 @@
           <term><option>-e</option></term>
           <listitem>
             <para>use <replaceable>patterns</replaceable> for matching</para>
+          </listitem>
+        </varlistentry>
+
+        <varlistentry>
+          <term><option>-F</option></term>
+          <listitem>
+            <para>use fixed string for matching</para>
           </listitem>
         </varlistentry>
 
@@ -1931,6 +2309,8 @@
 
         <arg><option>-e</option> <replaceable>patterns</replaceable></arg>
 
+        <arg><option>-F</option> <replaceable>fixed string</replaceable></arg>
+
       </cmdsynopsis>
 
       <variablelist>
@@ -1966,6 +2346,13 @@
           <term><option>-e</option></term>
           <listitem>
             <para>use <replaceable>patterns</replaceable> for matching</para>
+          </listitem>
+        </varlistentry>
+
+        <varlistentry>
+          <term><option>-F</option></term>
+          <listitem>
+            <para>use fixed string for matching</para>
           </listitem>
         </varlistentry>
 

@@ -51,6 +51,7 @@ public:
 		DATE,
 		DATE_SIZE,
 		SIZE,
+		EXISTENCE,
 	};
 
 	enum WindowType
@@ -61,6 +62,7 @@ public:
 		BINARY,
 		IMAGE,
 		WEBPAGE,
+		FOLDER,
 	};
 
 	enum DialogType
@@ -79,6 +81,7 @@ public:
 		NEW_BINARY_COMPARE  = 0x0004,
 		NEW_IMAGE_COMPARE   = 0x0008,
 		NEW_WEBPAGE_COMPARE = 0x0010,
+		NEW_FOLDER_COMPARE  = 0x0020,
 		CLIPBOARD_COMPARE   = 0x1000,
 		SHOW_OPTIONS_DIALOG = 0x8000,
 	};
@@ -121,6 +124,8 @@ public:
 
 	String m_sOutputpath;
 	String m_sReportFile;
+
+	String m_sGroupName; /**< Group name for instance grouping */
 
 	String m_sIniFilepath;
 

@@ -25,7 +25,7 @@ if "%1" == "" (
 
 del "%DISTDIR%\winmerge-%SAFEAPPVER%-full-src.7z" 2> NUL
 
-7z.exe a -t7z -xr!*.gcno -xr!*.gcda -xr!*.gcov -xr!*.orig -xr!*.o -xr!*.a -xr!.dep -xr!*.asm -xr!*.out -xr!debug_static* -xr!debug_shared* -xr!release_static* -xr!release_shared* -xr!*.bak -xr!*.lang -xr!*.db -xr!*.ncb  -xr!*.sdf -xr!*.bsc -xr!*.opt -xr!*.plg -xr!*.suo -xr!*.obj -xr!*.ilk -xr!*.pdb -xr!*.pch -xr!*.res -xr!*.exe -xr!*.sbr -xr!.vs -xr!*.VC.db-* -xr!*.zip -xr!WinMergeSplash.psd -xr!*.lib -xr!*.exp -xr!*.idb -xr!*.%COMPUTERNAME%.%USERNAME%.user -xr!BuildLog.htm -xr!ipch -xr!*.tlb -xr!*.tlog -xr!*.*~ -xr!CVS -xr!.svn -xr!.hg -xr!*.log -xr!*.lastbuildstate -xr!FreeImage*.dll -xr!WinIMergeLib.dll -xr!WinIMerge.exe -xr!WinWebDiff.dll -xr!WinWebDiff.exe -xr!BuildTmp -xr!Docs\Manual\Tools "%DISTDIR%\winmerge-%SAFEAPPVER%-full-src.7z" ArchiveSupport ColorSchemes Docs Externals Filters Installer Plugins ShellExtension Src Testing Tools Translations Web readme.txt Version.h Version.in *.cmd *.bat *.inf *.sln *.js
+7z.exe a -t7z -xr!*.gcno -xr!*.gcda -xr!*.gcov -xr!*.orig -xr!*.o -xr!*.a -xr!.dep -xr!*.asm -xr!*.out -xr!debug_static* -xr!debug_shared* -xr!release_static* -xr!release_shared* -xr!*.bak -xr!*.lang -xr!*.db -xr!*.ncb  -xr!*.sdf -xr!*.bsc -xr!*.opt -xr!*.plg -xr!*.suo -xr!*.obj -xr!*.ilk -xr!*.pdb -xr!*.pch -xr!*.res -xr!*.exe -xr!*.sbr -xr!.vs -xr!*.VC.db-* -xr!*.zip -xr!WinMergeSplash.psd -xr!*.lib -xr!*.exp -xr!*.idb -xr!*.%COMPUTERNAME%.%USERNAME%.user -xr!BuildLog.htm -xr!ipch -xr!*.tlb -xr!*.tlog -xr!*.*~ -xr!CVS -xr!.svn -xr!.hg -xr!*.log -xr!*.lastbuildstate -xr!FreeImage*.dll -xr!WinIMergeLib.dll -xr!WinIMerge.exe -xr!WinWebDiff.dll -xr!WinWebDiff.exe -xr!darkmode.dll -xr!BuildTmp -xr!Docs\Manual\Tools "%DISTDIR%\winmerge-%SAFEAPPVER%-full-src.7z" ArchiveSupport ColorSchemes Docs Externals Filters Installer Plugins ShellExtension Src Testing Tools Translations Web readme.txt Version.h Version.in *.cmd *.bat *.inf *.sln *.js
 
 (
 echo "%DISTDIR%\WinMerge-%SAFEAPPVER%-Setup.exe"
@@ -73,13 +73,13 @@ if "%1" == "x64" (
 )
 
 rem Create folder structure
-for %%i in (ColorSchemes Languages\ShellExtension Filters MergePlugins Docs Frhed\Docs Frhed\Languages WinIMerge WinWebDiff Merge7z\Lang Commands\Apache-Tika Commands\tidy-html5 Commands\jq Commands\q Commands\msys2 Commands\md4c Resources) do (
+for %%i in (ColorSchemes Languages\ShellExtension Filters MergePlugins Docs Frhed\Docs Frhed\Languages WinIMerge WinWebDiff darkmodelib TreeSitterGrammars Merge7z\Lang Commands\Apache-Tika Commands\cliphcat Commands\tidy-html5 Commands\jq Commands\q Commands\msys2 Commands\md4c Resources) do (
   mkdir "%DISTDIR%\%PLATFORMH%zip-version\WinMerge\%%i" 2> NUL
 )
 
 rem Docs
 echo Copy Docs...
-for %%i in (Translations\Docs\Readme\ReadMe-*.txt Build\Manual\htmlhelp\WinMerge*.chm Docs\Users\ReleaseNotes.html Docs\Users\ChangeLog.html) do (
+for %%i in (Translations\Docs\Readme\ReadMe-*.txt Build\Manual\htmlhelp\WinMerge*.chm Docs\Users\ReleaseNotes*.html Docs\Users\ChangeLog*.html) do (
   copy "%%i" "%DISTDIR%\%PLATFORMH%zip-version\WinMerge\Docs" > NUL
 )
 for %%i in (Src\COPYING Docs\Users\Contributors.txt Docs\Users\ReadMe.txt) do (
@@ -124,8 +124,8 @@ copy "Build\ShellExtension\WinMergeContextMenuPackage.msix" "%DISTDIR%\%PLATFORM
 
 rem Translations
 echo Copy Translations...
-copy Build\%PLATFORM%\Release\Languages\*.po "%DISTDIR%\%PLATFORMH%zip-version\WinMerge\Languages\" > NUL
-copy Translations\ShellExtension\*.po "%DISTDIR%\%PLATFORMH%zip-version\WinMerge\Languages\ShellExtension" > NUL
+copy Build\Translations\WinMerge\*.po "%DISTDIR%\%PLATFORMH%zip-version\WinMerge\Languages\" > NUL
+copy Build\Translations\ShellExtension\*.po "%DISTDIR%\%PLATFORMH%zip-version\WinMerge\Languages\ShellExtension\" > NUL
 
 rem ColorSchemes
 echo Copy ColorSchemes...
@@ -175,6 +175,19 @@ echo Copy WinWebDiff...
 copy Build\%PLATFORM%\Release\WinWebDiff\LICENSE*.txt "%DISTDIR%\%PLATFORMH%zip-version\WinMerge\WinWebDiff\" > NUL
 copy Build\%PLATFORM%\Release\WinWebDiff\WinWebDiffLib.dll "%DISTDIR%\%PLATFORMH%zip-version\WinMerge\WinWebDiff\" > NUL
 
+rem darkmodelib
+echo Copy darkmodelib...
+copy Build\%PLATFORM%\Release\darkmodelib\LICENSE.md "%DISTDIR%\%PLATFORMH%zip-version\WinMerge\darkmodelib\" > NUL
+copy Build\%PLATFORM%\Release\darkmodelib\darkmode.dll "%DISTDIR%\%PLATFORMH%zip-version\WinMerge\darkmodelib\" > NUL
+
+rem TreeSitterGrammars
+echo Copy TreeSitterGrammars...
+copy Build\%PLATFORM%\Release\TreeSitterGrammars\*.dll "%DISTDIR%\%PLATFORMH%zip-version\WinMerge\TreeSitterGrammars\" > NUL
+copy Build\%PLATFORM%\Release\TreeSitterGrammars\*.scm "%DISTDIR%\%PLATFORMH%zip-version\WinMerge\TreeSitterGrammars\" > NUL
+for /D %%i in (Build\%PLATFORM%\Release\TreeSitterGrammars\tree-sitter-*) do (
+    xcopy /Y /I "%%i\LICENSE" "%DISTDIR%\%PLATFORMH%zip-version\WinMerge\TreeSitterGrammars\%%~nxi\" > NUL
+)
+
 rem Commands
 echo Copy Commands...
 xcopy /s/y Plugins\Commands "%DISTDIR%\%PLATFORMH%zip-version\WinMerge\Commands"
@@ -182,12 +195,17 @@ copy Plugins\Commands\DownloadFiles.bat "%DISTDIR%\%PLATFORMH%zip-version\WinMer
 
 rem Patch
 echo Copy Patch...
-xcopy /s/y Build\msys2 "%DISTDIR%\%PLATFORMH%zip-version\WinMerge\Commands\msys2\" > NUL
+robocopy Build\msys2 "%DISTDIR%\%PLATFORMH%zip-version\WinMerge\Commands\msys2" /E /XF lemon*.* re2c*.* /XD lemon*.* re2c*.* > NUL
+
+rem Copy cliphcat...
+echo Copy cliphcat...
+copy Build\cliphcat\cliphcat.exe "%DISTDIR%\%PLATFORMH%zip-version\WinMerge\Commands\cliphcat\cliphcat.exe" > NUL
+copy Build\cliphcat\LICENSE "%DISTDIR%\%PLATFORMH%zip-version\WinMerge\Commands\cliphcat\" > NUL
 
 rem Copy jq...
 echo Copy jq...
 copy Build\jq\jq-windows-i386.exe "%DISTDIR%\%PLATFORMH%zip-version\WinMerge\Commands\jq\jq.exe" > NUL
-copy Build\jq\jq-jq-1.7.1\COPYING "%DISTDIR%\%PLATFORMH%zip-version\WinMerge\Commands\jq\" > NUL
+copy Build\jq\jq-jq-1.8.1\COPYING "%DISTDIR%\%PLATFORMH%zip-version\WinMerge\Commands\jq\" > NUL
 
 rem Copy tidy-html5...
 echo Copy tidy-html5...

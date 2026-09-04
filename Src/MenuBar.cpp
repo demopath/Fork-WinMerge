@@ -27,6 +27,7 @@ BEGIN_MESSAGE_MAP(CMenuBar, CToolBar)
 	ON_WM_MOUSELEAVE()
 	ON_WM_LBUTTONDOWN()
 	ON_WM_LBUTTONUP()
+	ON_WM_CONTEXTMENU()
 	ON_MESSAGE(UWM_SHOWPOPUPMENU, OnShowPopupMenu)
 END_MESSAGE_MAP()
 
@@ -42,6 +43,9 @@ CMenuBar::CMenuBar()
 	, m_nCurrentHotItem(-1)
 	, m_hCurrentPopupMenu(nullptr)
 	, m_bShowKeyboardCues(false)
+	, m_bAltUsedWithMouse(false)
+	, m_bAltKeyDown(false)
+	, m_mdiButtonVisibility(MDIButtonVisibility::AutoHide)
 {
 	m_pThis = this;
 }
@@ -82,6 +86,13 @@ BOOL CMenuBar::Create(CWnd* pParentWnd, DWORD dwStyle, UINT nID)
 	toolbar.SetButtonSize(CSize(tm.tmHeight + cy * 2, tm.tmHeight + cy * 2));
 
 	return ret;
+}
+
+void CMenuBar::SetMDIButtonVisibility(MDIButtonVisibility visibility)
+{
+	m_mdiButtonVisibility = visibility;
+	Invalidate();
+	StartMDIButtonCheckTimer();
 }
 
 bool CMenuBar::AttachMenu(CMenu* pMenu)
@@ -202,10 +213,36 @@ void CMenuBar::Show(bool visible)
 	static_cast<CFrameWnd*>(AfxGetMainWnd())->ShowControlBar(this, visible, 0);
 }
 
+void CMenuBar::StartMDIButtonCheckTimer()
+{
+	if (m_mdiButtonVisibility == MDIButtonVisibility::AlwaysShow)
+		SetTimer(MDI_BUTTON_CHECK_TIMER_ID, 300, nullptr);
+	else
+		KillTimer(MDI_BUTTON_CHECK_TIMER_ID);
+}
+
+bool CMenuBar::ShouldDrawMDIButtons() const
+{
+	if (!IsMDIChildMaximized())
+		return false;
+
+	switch (m_mdiButtonVisibility)
+	{
+	case MDIButtonVisibility::AlwaysShow:
+		return true;
+	case MDIButtonVisibility::AlwaysHide:
+		return false;
+	case MDIButtonVisibility::AutoHide:
+	default:
+		return m_bMouseTracking;
+	}
+}
+
 void CMenuBar::OnSetFocus(CWnd* pOldWnd)
 {
 	m_bActive = true;
-	m_hwndOldFocus = pOldWnd->m_hWnd;
+	if (pOldWnd)
+		m_hwndOldFocus = pOldWnd->m_hWnd;
 	if (!m_bAlwaysVisible)
 	{
 		KillTimer(MENUBAR_TIMER_ID);
@@ -221,6 +258,16 @@ void CMenuBar::OnTimer(UINT_PTR nIDEvent)
 		KillTimer(MENUBAR_TIMER_ID);
 		if (!m_bAlwaysVisible)
 			Show(false);
+	}
+	else if (nIDEvent == MDI_BUTTON_CHECK_TIMER_ID)
+	{
+		bool bMaximized = IsMDIChildMaximized();
+		if (bMaximized != m_bLastMDIChildMaximized)
+		{
+			m_bLastMDIChildMaximized = bMaximized;
+			CRect rc = GetMDIButtonsRect();
+			InvalidateRect(&rc, FALSE);
+		}
 	}
 }
 
@@ -246,8 +293,7 @@ void CMenuBar::OnCustomDraw(NMHDR* pNMHDR, LRESULT* pResult)
 		*pResult = CDRF_DODEFAULT | TBCDRF_USECDCOLORS | TBCDRF_HILITEHOTTRACK;
 		return;
 	}
-	else if (dwDrawState == CDDS_POSTPAINT &&
-		(m_bMouseTracking && IsMDIChildMaximized()))
+	else if (dwDrawState == CDDS_POSTPAINT && ShouldDrawMDIButtons())
 	{
 		DrawMDIButtons(pNMCD->nmcd.hdc);
 	}
@@ -282,12 +328,15 @@ void CMenuBar::OnMouseLeave()
 
 void CMenuBar::OnLButtonDown(UINT nFlags, CPoint point)
 {
-	CRect rcButtons = GetMDIButtonsRect();
-	if (rcButtons.PtInRect(point))
+	if (ShouldDrawMDIButtons())
 	{
-		m_nMDIButtonDown = GetMDIButtonIndexFromPoint(point);
-		InvalidateRect(rcButtons);
-		return;
+		CRect rcButtons = GetMDIButtonsRect();
+		if (rcButtons.PtInRect(point))
+		{
+			m_nMDIButtonDown = GetMDIButtonIndexFromPoint(point);
+			InvalidateRect(rcButtons);
+			return;
+		}
 	}
 	__super::OnLButtonDown(nFlags, point);
 }
@@ -375,10 +424,22 @@ LRESULT CMenuBar::OnShowPopupMenu(WPARAM wParam, LPARAM lParam)
 	return 0;
 }
 
+void CMenuBar::OnContextMenu(CWnd* pWnd, CPoint point)
+{
+	AfxGetMainWnd()->SendMessage(UWM_MDI_BUTTON_CONTEXTMENU, 0, MAKELPARAM(point.x, point.y));
+}
+
 BOOL CMenuBar::PreTranslateMessage(MSG* pMsg)
 {
 	if (!m_hWnd)
 		return FALSE;
+
+	if (m_bAltKeyDown)
+	{
+		if (pMsg->message == WM_MOUSEMOVE || pMsg->message == WM_LBUTTONDOWN || pMsg->message == WM_LBUTTONUP)
+			m_bAltUsedWithMouse = true;
+	}
+
 	if (pMsg->message == WM_SYSKEYDOWN || pMsg->message == WM_SYSKEYUP)
 	{
 		const BOOL bShift = ::GetAsyncKeyState(VK_SHIFT) & 0x8000;
@@ -386,10 +447,22 @@ BOOL CMenuBar::PreTranslateMessage(MSG* pMsg)
 		{
 			if (pMsg->message == WM_SYSKEYDOWN)
 			{
+				if (pMsg->wParam == VK_MENU)
+				{
+					m_bAltKeyDown = true;
+					m_bAltUsedWithMouse = false;
+				}
 				ShowKeyboardCues(true);
 			}
 			else if (pMsg->message == WM_SYSKEYUP && m_bShowKeyboardCues)
 			{
+				m_bAltKeyDown = false;
+				if (m_bAltUsedWithMouse)
+				{
+					m_bAltUsedWithMouse = false;
+					ShowKeyboardCues(false);
+					return TRUE; // Alt was used with mouse
+				}
 				if (!m_bActive)
 					SetFocus();
 				else if (m_hwndOldFocus != nullptr && IsWindow(m_hwndOldFocus))
@@ -397,10 +470,12 @@ BOOL CMenuBar::PreTranslateMessage(MSG* pMsg)
 			}
 			return TRUE;
 		}
+	}
+	else if (pMsg->message == WM_SYSCHAR)
+	{
 		UINT uId = 0;
-		const TCHAR key = static_cast<TCHAR>(pMsg->wParam);
-		const bool alnum = (key >= '0' && key <= '9') || (key >= 'A' && key <= 'Z');
-		if ((pMsg->message == WM_SYSKEYDOWN) && alnum && GetToolBarCtrl().MapAccelerator(key, &uId) != 0)
+		const TCHAR ch = static_cast<TCHAR>(pMsg->wParam);
+		if (GetToolBarCtrl().MapAccelerator(ch, &uId) != 0)
 		{
 			ShowKeyboardCues(true);
 			OnMenuBarMenuItem(uId);

@@ -13,7 +13,6 @@
 
 #include "stdafx.h"
 #include "HexMergeFrm.h"
-#include "Merge.h"
 #include "HexMergeDoc.h"
 #include "HexMergeView.h"
 #include "OptionsDef.h"
@@ -131,13 +130,21 @@ BOOL CHexMergeFrame::OnCreateClient( LPCREATESTRUCT /*lpcs*/,
 	m_wndFilePathBar.SetOnSetFocusCallback([&](int pane) {
 		SetActivePane(pane);
 	});
-	m_wndFilePathBar.SetOnCaptionChangedCallback([&](int pane, const String& sText) {
+	m_wndFilePathBar.SetOnCaptionChangedCallback([this](int pane, const String& sText) {
 		m_pMergeDoc->SetDescription(pane ,sText);
 		m_pMergeDoc->UpdateHeaderPath(pane);
+		GetView(pane)->SetFocus();
 	});
-	m_wndFilePathBar.SetOnFileSelectedCallback([&](int pane, const String& sFilepath) {
-		m_pMergeDoc->ChangeFile(pane, sFilepath);
+	m_wndFilePathBar.SetOnFileSelectedCallback([this](int pane, const String& sFilepath, const String& sDescription) {
+		if (m_pMergeDoc->ChangeFile(pane, sFilepath, sDescription))
+		{
+			GetView(pane)->SetFocus();
+			// Only add to MRU if description is empty (i.e., not from clipboard history)
+			if (sDescription.empty())
+				MruHelper::addToMru(pane, sFilepath);
+		}
 	});
+	m_wndFilePathBar.SetDefaultHistoryCallbacks();
 
 	// Set filename bars inactive so colors get initialized
 	for (nPane = 0; nPane < m_pMergeDoc->m_nBuffers; nPane++)
@@ -220,7 +227,7 @@ void CHexMergeFrame::SavePosition()
 
 void CHexMergeFrame::SaveActivePane()
 {
-	if (CWnd* pLeft = m_wndSplitter.GetPane(0, 0))
+	if (m_wndSplitter.GetPane(0, 0))
 	{
 		GetOptionsMgr()->SaveOption(OPT_ACTIVE_PANE, GetActivePane());
 	}
@@ -308,6 +315,12 @@ int CHexMergeFrame::GetActivePane()
 	else
 		m_wndSplitter.GetActivePane(&nPane, nullptr);
 	return nPane;
+}
+
+CWnd* CHexMergeFrame::GetView(int nPane)
+{
+	return (m_wndSplitter.GetColumnCount() > 1) ? 
+		m_wndSplitter.GetPane(0, nPane) : m_wndSplitter.GetPane(nPane, 0);
 }
 
 void CHexMergeFrame::SetActivePane(int nPane)

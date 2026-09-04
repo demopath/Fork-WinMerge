@@ -112,6 +112,9 @@
     <None Include="..\Translations\WinMerge\Turkish.po">
       <Filter>Translations\WinMerge</Filter>
     </None>
+    <None Include="..\Translations\WinMerge\Vietnamese.po">
+      <Filter>Translations\WinMerge</Filter>
+    </None>
     <None Include="..\Translations\WinMerge\UpdatePoFilesFromPotFile.ps1">
       <Filter>Scripts\WinMerge</Filter>
     </None>
@@ -232,6 +235,9 @@
     <None Include="..\Translations\ShellExtension\Ukrainian.po">
       <Filter>Translations\ShellExtension</Filter>
     </None>
+    <None Include="..\Translations\ShellExtension\Vietnamese.po">
+      <Filter>Translations\ShellExtension</Filter>
+    </None>
     <None Include="..\Translations\ShellExtension\English.pot">
       <Filter>Translations\ShellExtension</Filter>
     </None>
@@ -246,6 +252,9 @@
     </None>
     <None Include="..\Translations\ShellExtension\Hebrew.po">
       <Filter>Translations\ShellExtension</Filter>
+    </None>
+    <None Include="..\Translations\StripPoComments.ps1">
+      <Filter>Scripts</Filter>
     </None>
   </ItemGroup>
   <ItemGroup>

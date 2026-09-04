@@ -9,6 +9,7 @@
 #pragma once
 
 #include <memory>
+#include <vector>
 #include "diff.h"
 #include "FileLocation.h"
 #include "PathContext.h"
@@ -16,6 +17,10 @@
 #include "DiffList.h"
 #include "UnicodeString.h"
 #include "FileTransform.h"
+#include "TextDefinition.h"
+#include "ITextBuffer.h"
+#include "ISyntaxParser.h"
+#include "TableProps.h"
 
 class CDiffContext;
 class PrediffingInfo;
@@ -25,7 +30,6 @@ struct file_data;
 class MovedLines;
 class FilterList;
 class SubstitutionList;
-namespace CrystalLineParser { struct TextDefinition; };
 
 /** @enum COMPARE_TYPE
  * @brief Different foldercompare methods.
@@ -83,6 +87,12 @@ namespace CrystalLineParser { struct TextDefinition; };
  * size always means files are different. E.g. automatically created logs - when
  * more data is added size increases.
  */
+
+ /** @var CMP_EXISTENCE
+  * @brief Compare only by file existence.
+  * This compare type considers files identical if both left and right
+  * files exist, without checking their contents, size, or timestamps.
+  */
 enum COMPARE_TYPE
 {
 	CMP_CONTENT = 0,
@@ -91,6 +101,7 @@ enum COMPARE_TYPE
 	CMP_DATE,
 	CMP_DATE_SIZE,
 	CMP_SIZE,
+	CMP_EXISTENCE,
 	CMP_IMAGE_CONTENT,
 };
 
@@ -141,10 +152,9 @@ struct DIFFSTATUS
 
 struct PostFilterContext
 {
-	int nParsedLineEndLeft = -1;
-	int nParsedLineEndRight = -1;
-	unsigned dwCookieLeft = 0;
-	unsigned dwCookieRight = 0;
+	std::shared_ptr<LangServices::ISyntaxParser> m_pSyntaxParser[3];
+	bool m_bSyntaxParserInitialized[3] = { false, false, false };
+	std::unique_ptr<LangServices::ITextBuffer> m_pTextBuffer[3]; /**< Text buffer for parser access */
 };
 
 /**
@@ -168,6 +178,7 @@ public:
 	void SetTextForAutomaticPrediff(const String &text);
 	void SetPrediffer(const PrediffingInfo * prediffer = nullptr);
 	void GetPrediffer(PrediffingInfo * prediffer) const;
+	void SetTableProps(int pane, const TableProps& tableProps) { m_tableProps[pane] = tableProps; };
 	void SetPatchOptions(const PATCHOPTIONS *options);
 	void SetDetectMovedBlocks(bool bDetectMovedBlocks);
 	bool GetDetectMovedBlocks() const { return (m_pMovedLines[0] != nullptr); }
@@ -187,7 +198,7 @@ public:
 	void SetFilterList(std::shared_ptr<FilterList> pFilterList);
 	const SubstitutionList* GetSubstitutionList() const;
 	void SetSubstitutionList(std::shared_ptr<SubstitutionList> pSubstitutionFiltersList);
-	void SetFilterCommentsSourceDef(CrystalLineParser::TextDefinition *def) { m_pFilterCommentsDef = def; };
+	void SetFilterCommentsSourceDef(LangServices::TextDefinition *def) { m_pFilterCommentsDef = def; };
 	void SetFilterCommentsSourceDef(const String& ext);
 	void SetCodepage(int codepage) { m_codepage = codepage; }
 	void EnablePlugins(bool enable);
@@ -223,6 +234,7 @@ private:
 	bool m_bPathsAreTemp; /**< Are compared paths temporary? */
 	/// prediffer info are stored only for MergeDoc
 	std::unique_ptr<PrediffingInfo> m_infoPrediffer;
+	std::optional<TableProps> m_tableProps[3]; /**< Table properties for table compare */
 	/// prediffer info are stored only for MergeDoc
 	String m_sToFindPrediffer;
 	bool m_bUseDiffList; /**< Are results returned in difflist? */
@@ -232,7 +244,7 @@ private:
 	int m_nDiffs; /**< Difference count */
 	DiffList *m_pDiffList; /**< Pointer to external DiffList */
 	std::unique_ptr<MovedLines> m_pMovedLines[3];
-	CrystalLineParser::TextDefinition *m_pFilterCommentsDef; /**< Text definition for Comments filter  */
+	LangServices::TextDefinition *m_pFilterCommentsDef; /**< Text definition for Comments filter  */
 	bool m_bPluginsEnabled; /**< Are plugins enabled? */
 	int m_codepage; /**< Codepage used in line filter */
 };

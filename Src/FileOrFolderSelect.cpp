@@ -18,7 +18,8 @@
 #include <shlobj.h>
 #pragma warning (pop)
 #include "paths.h"
-#include "MergeApp.h"
+#include "I18n.h"
+#include "DarkModeLib.h"
 
 static int CALLBACK BrowseCallbackProc(HWND hwnd, UINT uMsg, LPARAM lParam,
 		LPARAM lpData);
@@ -26,6 +27,22 @@ static void ConvertFilter(tchar_t* filterStr);
 
 /** @brief Last selected folder for folder selection dialog. */
 static String LastSelectedFolder;
+
+/**
+ * @brief Calls GetOpenFileName() and converts exceptions raised by
+ *        third-party shell extensions into a dialog failure.
+ */
+static BOOL MyGetOpenFileName(OPENFILENAME* pofn)
+{
+	__try
+	{
+		return GetOpenFileName(pofn);
+	}
+	__except (EXCEPTION_EXECUTE_HANDLER)
+	{
+	}
+	return FALSE;
+}
 
 /**
  * @brief Helper function for selecting folder or file.
@@ -103,7 +120,7 @@ bool SelectFile(HWND parent, String& path, bool is_open /*= true*/,
 
 	bool bRetVal = false;
 	if (is_open)
-		bRetVal = !!GetOpenFileName((OPENFILENAME *)&ofn);
+		bRetVal = !!MyGetOpenFileName((OPENFILENAME *)&ofn);
 	else
 		bRetVal = !!GetSaveFileName((OPENFILENAME *)&ofn);
 	// common file dialog populated sSelectedFile variable's buffer
@@ -170,6 +187,8 @@ static int CALLBACK BrowseCallbackProc(HWND hwnd, UINT uMsg, LPARAM lParam,
 			SendMessage(hwnd, BFFM_SETSELECTION, TRUE, lpData);
 		else
 			SendMessage(hwnd, BFFM_SETSELECTION, TRUE, (LPARAM)LastSelectedFolder.c_str());
+
+		DarkMode::setDarkWndSafeEx(hwnd, false);
 	}
 	else if (uMsg == BFFM_VALIDATEFAILED)
 	{
@@ -254,7 +273,7 @@ bool SelectFileOrFolder(HWND parent, String& path, const tchar_t* initialPath /*
 	ofn.lpstrFileTitle = nullptr;
 	ofn.Flags = OFN_HIDEREADONLY | OFN_PATHMUSTEXIST | OFN_NOTESTFILECREATE | OFN_NOCHANGEDIR;
 
-	bool bRetVal = !!GetOpenFileName((OPENFILENAME *)&ofn);
+	bool bRetVal = !!MyGetOpenFileName((OPENFILENAME*)&ofn);
 
 	if (bRetVal)
 	{

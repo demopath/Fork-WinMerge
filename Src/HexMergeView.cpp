@@ -41,16 +41,8 @@ static HRESULT NTAPI SE(BOOL f)
 	return hr;
 }
 
-static UINT64 NTAPI GetLastWriteTime(HANDLE h)
-{
-	UINT64 ft;
-	return ::GetFileTime(h, 0, 0, reinterpret_cast<FILETIME *>(&ft)) ? ft : 0;
-}
 
-static void NTAPI SetLastWriteTime(HANDLE h, UINT64 ft)
-{
-	::SetFileTime(h, 0, 0, reinterpret_cast<FILETIME *>(&ft));
-}
+
 
 /////////////////////////////////////////////////////////////////////////////
 // CHexMergeView
@@ -146,6 +138,10 @@ int CHexMergeView::OnCreate(LPCREATESTRUCT lpCreateStruct)
 	m_pif = reinterpret_cast<IHexEditorWindow *>(::GetWindowLongPtr(m_hWnd, GWLP_USERDATA));
 	if (m_pif == nullptr || m_pif->get_interface_version() < HEKSEDIT_INTERFACE_VERSION)
 		return -1;
+	m_pif->set_theme_callback([](HWND hwnd, IHexEditorWindow::WINDOW_TYPE windowType) {
+			if (windowType == IHexEditorWindow::WINDOW_DIALOG)
+				DarkMode::setDarkWndSafeEx(hwnd, true);
+		});
 	return 0;
 }
 
@@ -273,7 +269,10 @@ HRESULT CHexMergeView::LoadFile(const tchar_t* path)
 {
 	CHexMergeDoc *pDoc = static_cast<CHexMergeDoc *>(GetDocument());
 	String strTempFileName = path;
-	if (!pDoc->GetUnpacker()->Unpacking(m_nThisPane, &m_unpackerSubcodes, strTempFileName, path, { strTempFileName }))
+	PluginPipelineContext pipelineContext;
+	pipelineContext.filteredFilenames = strutils::join(pDoc->m_filePaths.begin(), pDoc->m_filePaths.end(), _T("|"));
+	pipelineContext.variables = { strTempFileName };
+	if (!pDoc->GetUnpacker()->Unpacking(m_nThisPane, &m_unpackerSubcodes, strTempFileName, pipelineContext))
 		return E_FAIL;
 	HANDLE h = CreateFile(strTempFileName.c_str(), GENERIC_READ,
 		FILE_SHARE_READ | FILE_SHARE_WRITE,
@@ -351,7 +350,9 @@ HRESULT CHexMergeView::SaveFile(const tchar_t* path, bool packing)
 	CHexMergeDoc* pDoc = static_cast<CHexMergeDoc*>(GetDocument());
 	if (packing && !m_unpackerSubcodes.empty())
 	{
-		if (!pDoc->GetUnpacker()->Packing(m_nThisPane, sIntermediateFilename, path, m_unpackerSubcodes, { path }))
+		PluginPipelineContext pipelineContext;
+		pipelineContext.variables = { path };
+		if (!pDoc->GetUnpacker()->Packing(m_nThisPane, sIntermediateFilename, path, m_unpackerSubcodes, pipelineContext))
 		{
 			String str = CMergeApp::GetPackingErrorMessage(m_nThisPane, pDoc->m_nBuffers, path, *pDoc->GetUnpacker());
 			int answer = AfxMessageBox(str.c_str(), MB_OKCANCEL | MB_ICONWARNING);
@@ -548,7 +549,15 @@ BOOL CHexMergeView::PreTranslateMessage(MSG* pMsg)
 			return false;
 		}
 	}
-	return m_pif->translate_accelerator(pMsg);
+	if (pMsg->message >= WM_KEYFIRST && pMsg->message <= WM_KEYLAST)
+	{
+		HACCEL hAccel = ((CMDIFrameWnd*)AfxGetMainWnd())->m_hAccelTable;
+		if (hAccel != nullptr && ::TranslateAccelerator(AfxGetMainWnd()->m_hWnd, hAccel, pMsg))
+			return TRUE;
+		if (m_pif->translate_accelerator(pMsg))
+			return TRUE;
+	}
+	return __super::PreTranslateMessage(pMsg);
 }
 
 /**
@@ -586,7 +595,7 @@ void CHexMergeView::OnPrevdiff()
 /** @brief Open help from mainframe when user presses F1*/
 void CHexMergeView::OnHelp()
 {
-	theApp.ShowHelp(HexMergeViewHelpLocation);
+	CMergeApp::ShowHelp(HexMergeViewHelpLocation);
 }
 
 void CHexMergeView::ZoomText(int amount)

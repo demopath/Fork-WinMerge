@@ -27,6 +27,7 @@ inline const String OPT_SHOW_DIFFERENT_RIGHT_ONLY {_T("Settings/ShowDifferentRig
 inline const String OPT_SHOW_MISSING_LEFT_ONLY {_T("Settings/ShowMissingLeftOnly"s)};
 inline const String OPT_SHOW_MISSING_MIDDLE_ONLY {_T("Settings/ShowMissingMiddleOnly"s)};
 inline const String OPT_SHOW_MISSING_RIGHT_ONLY {_T("Settings/ShowMissingRightOnly"s)};
+inline const String OPT_SHOW_EMPTY_FOLDERS {_T("Settings/ShowEmptyFolders"s)};
 inline const String OPT_TREE_MODE {_T("Settings/TreeMode"s)};
 
 // Show/hide toolbar/statusbar/tabbar
@@ -38,8 +39,10 @@ inline const String OPT_SHOW_OUTPUTBAR {_T("Settings/ShowOutputbar"s)};
 inline const String OPT_REBAR_STATE {_T("Settings/ReBarState"s)};
 inline const String OPT_TOOLBAR_SIZE {_T("Settings/ToolbarSize"s)};
 inline const String OPT_RESIZE_PANES {_T("Settings/AutoResizePanes"s)};
+inline const String OPT_MDI_BUTTON_VISIBILITY {_T("Settings/MDIButtonVisibility"s)};
 
 inline const String OPT_SYNTAX_HIGHLIGHT {_T("Settings/HiliteSyntax"s)};
+inline const String OPT_SYNTAX_HIGHLIGHT_MODE {_T("Settings/HiliteSyntaxMode"s)};
 inline const String OPT_VIEW_WHITESPACE {_T("Settings/ViewWhitespace"s)};
 inline const String OPT_VIEW_EOL {_T("Settings/ViewEOL"s)};
 inline const String OPT_SCROLL_TO_FIRST {_T("Settings/ScrollToFirst"s)};
@@ -74,11 +77,20 @@ inline const String OPT_ADDITIONAL_PROPERTIES {_T("Settings/AdditionalProperties
 // Window/Pane
 inline const String OPT_ACTIVE_FRAME_MAX {_T("Settings/ActiveFrameMax"s)};
 inline const String OPT_ACTIVE_PANE {_T("Settings/ActivePane"s)};
+inline const String OPT_LOCBAR_MOVECURSOR_ONCLICK {_T("Settings/LocBarMoveCursorOnClick"s)};
 
-// Folder Compare Report
+// Folder/File Compare Report
 inline const String OPT_REPORTFILES_REPORTTYPE {_T("ReportFiles/ReportType"s)};
 inline const String OPT_REPORTFILES_COPYTOCLIPBOARD {_T("ReportFiles/CopyToClipboard"s)};
+inline const String OPT_REPORTFILES_OPENREPORTFILE {_T("ReportFiles/OpenReportFile"s)};
 inline const String OPT_REPORTFILES_INCLUDEFILECMPREPORT {_T("ReportFiles/IncludeFileCmpReport"s)};
+inline const String OPT_REPORTFILES_INCLUDEALLIMAGEPAGES {_T("ReportFiles/IncludeAllImagePages"s)};
+
+// archive
+inline const String OPT_ARCHIVE_INCLUDEREPORT {_T("Archives/IncludeReport"s)};
+inline const String OPT_ARCHIVE_INCLUDEPATCH {_T("Archives/IncludePatch"s)};
+inline const String OPT_ARCHIVE_INCLUDEPROJECT {_T("Archives/IncludeProject"s)};
+inline const String OPT_ARCHIVE_COPYTOCLIPBOARD {_T("Archives/CopyToClipboard"s)};
 
 // File compare
 inline const String OPT_AUTOMATIC_RESCAN {_T("Settings/AutomaticRescan"s)};
@@ -206,7 +218,10 @@ inline const String OPT_DIRCLR_MARGIN {_T("Settings/DirMarginColor"s)};
 // Use dir compare coloring?
 inline const String OPT_DIRCLR_USE_COLORS {_T("Settings/UseDirCompareColors"s)};
 
+inline const String OPT_COLOR_MODE {_T("Settings/ColorMode"s)};
+inline const String OPT_COLOR_MODE_EFFECTIVE {_T("Settings/ColorModeEffective"s)};
 inline const String OPT_COLOR_SCHEME {_T("Settings/ColorScheme"s)};
+inline const String OPT_COLOR_SCHEME_DARK {_T("Settings/ColorSchemeDark"s)};
 
 // Compare options
 inline const String OPT_CMP_IGNORE_WHITESPACE {_T("Settings/IgnoreSpace"s)};
@@ -217,6 +232,7 @@ inline const String OPT_CMP_IGNORE_NUMBERS {_T("Settings/IgnoreNumbers"s)};
 inline const String OPT_CMP_IGNORE_EOL {_T("Settings/IgnoreEol"s)};
 inline const String OPT_CMP_IGNORE_CODEPAGE {_T("Settings/IgnoreCodepage"s)};
 inline const String OPT_CMP_IGNORE_MISSING_TRAILING_EOL {_T("Settings/IgnoreMissingTrailingEol"s)};
+inline const String OPT_CMP_IGNORE_LINE_BREAKS {_T("Settings/IgnoreLineBreaks"s)};
 inline const String OPT_CMP_METHOD {_T("Settings/CompMethod2"s)};
 inline const String OPT_CMP_MOVED_BLOCKS {_T("Settings/MovedBlocks"s)};
 inline const String OPT_CMP_ALIGN_SIMILAR_LINES {_T("Settings/MatchSimilarLines"s)};
@@ -230,10 +246,17 @@ inline const String OPT_CMP_INCLUDE_SUBDIRS {_T("Settings/Recurse"s)};
 inline const String OPT_CMP_DIFF_ALGORITHM {_T("Settings/DiffAlgorithm"s)};
 inline const String OPT_CMP_INDENT_HEURISTIC {_T("Settings/IndentHeuristic"s)};
 inline const String OPT_CMP_COMPLETELY_BLANK_OUT_IGNORED_CHANGES {_T("Settings/CompletelyBlankOutIgnoredChanges"s)};
+inline const String OPT_CMP_ADDITIONAL_CONDITION {_T("Settings/AdditionalCompareCondition"s)};
+
+// Renamed/moved detection options
+inline const String OPT_CMP_RENAME_MOVE_DETECTION {_T("Settings/RenameMoveDetection"s)};
+inline const String OPT_CMP_RENAME_MOVE_KEY {_T("Settings/RenameMoveKey"s)};
+inline const String OPT_CMP_RENAME_MOVE_MERGE_MODE {_T("Settings/RenameMoveMergeMode"s)};
 
 // Image Compare options
 inline const String OPT_CMP_IMG_FILEPATTERNS {_T("Settings/ImageFilePatterns"s)};
 inline const String OPT_CMP_IMG_SHOWDIFFERENCES {_T("Settings/ImageShowDifferences"s)};
+inline const String OPT_CMP_IMG_BLINKDIFFERENCES {_T("Settings/ImageBlinkDifferences"s)};
 inline const String OPT_CMP_IMG_OVERLAYMODE {_T("Settings/ImageOverlayMode"s)};
 inline const String OPT_CMP_IMG_OVERLAYALPHA {_T("Settings/ImageOverlayAlpha"s)};
 inline const String OPT_CMP_IMG_DRAGGING_MODE {_T("Settings/ImageDraggingMode"s)};
@@ -250,6 +273,8 @@ inline const String OPT_CMP_IMG_OVERLAYANIMATIONINTERVAL {_T("Settings/ImageOver
 
 inline const String OPT_CMP_ENABLE_IMGCMP_IN_DIRCMP {_T("Settings/EnableImageCompareInFolderCompare"s)};
 inline const String OPT_CMP_IMG_OCR_RESULT_TYPE {_T("Settings/ImageOcrResultType"s)};
+inline const String OPT_CMP_IMG_PREFER_WIC_DECODER {_T("Settings/ImagePreferWICDecoder"s)};
+inline const String OPT_CMP_IMG_SPLITTER_POS {_T("Settings/ImageSplitterPosition"s)};
 
 // WebPage Compare options
 inline const String OPT_CMP_WEB_USERDATAFOLDER_TYPE {_T("Settings/WebPageUserDataFolderType"s)};
@@ -283,6 +308,7 @@ inline const String OPT_LINEFILTER_ENABLED {_T("Settings/IgnoreRegExp"s)};
 inline const String OPT_FILEFILTER_CURRENT {_T("Settings/FileFilterCurrent"s)};
 inline const String OPT_FILTER_USERPATH {_T("Settings/UserFilterPath"s)};
 inline const String OPT_FILEFILTER_SHARED {_T("Settings/Filters/Shared"s)};
+inline const String OPT_USERDATA_LOCATION {_T("Settings/UserDataLocation"s)};
 
 /// Substitution Filters
 inline const String OPT_SUBSTITUTION_FILTERS_ENABLED {_T("Settings/SubstitutionFiltersEnabled"s)};

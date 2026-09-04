@@ -30,7 +30,9 @@ rep="norepeat"><option>/t</option>
 <replaceable>window-type</replaceable></arg> <arg><option>/x</option></arg>
 <arg><option>/xq</option></arg> <arg><option>/s</option></arg>
 <arg><option>/sw</option></arg> <arg><option>/s-</option></arg> <arg
-choice="opt" rep="norepeat"><option>/ul</option></arg> <arg choice="opt"
+choice="opt" rep="norepeat"><option>/g</option>
+<replaceable>group-name</replaceable></arg> <arg choice="opt"
+rep="norepeat"><option>/ul</option></arg> <arg choice="opt"
 rep="norepeat"><option>/um</option></arg> <arg choice="opt"
 rep="norepeat"><option>/ur</option></arg> <arg choice="opt"
 rep="norepeat"><option>/u</option></arg> <arg choice="opt"
@@ -166,10 +168,11 @@ rep="norepeat"><replaceable>conflictfile</replaceable></arg></cmdsynopsis>
 
       <term><option>/m <replaceable>compare-method</replaceable></option></term>
       <listitem>
-        <para>מגדיר את שיטת ההשוואה לשימוש בהשוואה. זה יכול להיות אחד ממילות המפתח
-<userinput>Full</userinput>, <userinput>Quick</userinput>,
+        <para>Sets the compare method to use for the comparison.  This can be one of the
+keywords <userinput>Full</userinput>, <userinput>Quick</userinput>,
 <userinput>Binary</userinput>, <userinput>Date</userinput>,
-<userinput>SizeDate</userinput> או <userinput>Size</userinput>.</para>
+<userinput>SizeDate</userinput>, <userinput>Size</userinput> or
+<userinput>Existence</userinput>.</para>
       </listitem>
     </varlistentry>
 
@@ -183,8 +186,8 @@ rep="norepeat"><replaceable>conflictfile</replaceable></arg></cmdsynopsis>
       <listitem>
         <para>מציין את סוג החלון בו יוצגו קבצים. זה יכול להיות אחד ממילות המפתח
 <userinput>Text</userinput>, <userinput>Table</userinput>,
-<userinput>Binary</userinput>, <userinput>Image</userinput> או
-<userinput>Webpage</userinput>.</para>
+<userinput>Binary</userinput>, <userinput>Image</userinput>,
+<userinput>Webpage</userinput> או <userinput>Folder</userinput>.</para>
       </listitem>
     </varlistentry>
 
@@ -233,6 +236,20 @@ rep="norepeat"><replaceable>conflictfile</replaceable></arg></cmdsynopsis>
       <listitem>
         <para>ודא שמופע אחר תמיד מבוצע, תוך התעלמות מהערך של האפשרות "אפשר להפעיל רק מופע
 אחד".</para>
+      </listitem>
+    </varlistentry>
+
+    <varlistentry>
+      <indexterm>
+        <primary>חלון WinMerge</primary>
+        <secondary>instance groups</secondary>
+      </indexterm>
+
+      <term><option>/g</option> <replaceable>group-name</replaceable></term>
+      <listitem>
+        <para>Specifies a group name for the WinMerge instance. When used with the
+<option>/s</option> option, instances with the same group name share the
+same window, allowing you to organize multiple single-instance groups.</para>
       </listitem>
     </varlistentry>
 
@@ -434,14 +451,19 @@ WorkingCopy</userinput>. השתמש בסימני ציטוט סביב תיאור�
     <varlistentry>
       <term><option>/noninteractive</option></term>
       <listitem>
-        <para>TBD</para>
+        <para>
+Runs WinMerge without displaying message boxes during comparison or report
+generation.  The process terminates automatically when the operation is
+complete, making it suitable for batch or scripted execution.</para>
       </listitem>
     </varlistentry>
 
     <varlistentry>
       <term><option>/noprefs</option></term>
       <listitem>
-        <para>TBD</para>
+        <para>
+Runs WinMerge without loading or saving settings from the registry.  All
+comparisons use default preferences only.</para>
       </listitem>
     </varlistentry>
 
@@ -455,63 +477,101 @@ WorkingCopy</userinput>. השתמש בסימני ציטוט סביב תיאור�
     <varlistentry>
       <term><option>/ignorews</option></term>
       <listitem>
-        <para>TBD</para>
+        <para>Controls the "Whitespaces" option (whitespace comparison settings)
+persistently:</para>
+        <itemizedlist>
+          <listitem><para><option>/ignorews:0</option> - do not ignore whitespace differences.</para></listitem>
+          <listitem><para><option>/ignorews</option> or <option>/ignorews:1</option> - ignore
+differences in the amount of whitespace.</para></listitem>
+          <listitem><para><option>/ignorews:2</option> - ignore all whitespace characters.</para></listitem>
+        </itemizedlist>
       </listitem>
     </varlistentry>
 
     <varlistentry>
       <term><option>/ignoreblanklines</option></term>
       <listitem>
-        <para>TBD</para>
+        <para>Controls the "Ignore blank lines" option persistently:</para>
+        <itemizedlist>
+          <listitem><para><option>/ignoreblanklines:0</option> - disables ignoring blank lines.</para></listitem>
+          <listitem><para><option>/ignoreblanklines</option> or <option>/ignoreblanklines:1</option> -
+enables ignoring blank lines.</para></listitem>
+        </itemizedlist>
       </listitem>
     </varlistentry>
 
     <varlistentry>
       <term><option>/ignorecase</option></term>
       <listitem>
-        <para>TBD</para>
+        <para>Controls the "Ignore case" option persistently:</para>
+        <itemizedlist>
+          <listitem><para><option>/ignorecase:0</option> - disables ignoring case differences.</para></listitem>
+          <listitem><para><option>/ignorecase</option> or <option>/ignorecase:1</option> - enables
+ignoring case differences.</para></listitem>
+        </itemizedlist>
       </listitem>
     </varlistentry>
 
     <varlistentry>
       <term><option>/ignoreeol</option></term>
       <listitem>
-        <para>TBD</para>
+        <para>Controls the "Ignore EOL differences" option persistently:</para>
+        <itemizedlist>
+          <listitem><para><option>/ignoreeol:0</option> - disables ignoring EOL differences.</para></listitem>
+          <listitem><para><option>/ignoreeol</option> or <option>/ignoreeol:1</option> - enables
+ignoring EOL differences.</para></listitem>
+        </itemizedlist>
       </listitem>
     </varlistentry>
 
     <varlistentry>
       <term><option>/ignorecodepage</option></term>
       <listitem>
-        <para>TBD</para>
+        <para>Controls the "Ignore codepage differences" option persistently:</para>
+        <itemizedlist>
+          <listitem><para><option>/ignorecodepage:0</option> - disables ignoring codepage differences.</para></listitem>
+          <listitem><para><option>/ignorecodepage</option> or <option>/ignorecodepage:1</option> -
+enables ignoring codepage differences.</para></listitem>
+        </itemizedlist>
       </listitem>
     </varlistentry>
 
     <varlistentry>
       <term><option>/ignorecomments</option></term>
       <listitem>
-        <para>TBD</para>
+        <para>Controls the "Ignore comment differences" option persistently:</para>
+        <itemizedlist>
+          <listitem><para><option>/ignorecomments:0</option> - disables ignoring comments.</para></listitem>
+          <listitem><para><option>/ignorecomments</option> or <option>/ignorecomments:1</option> -
+enables ignoring comments.</para></listitem>
+        </itemizedlist>
       </listitem>
     </varlistentry>
 
     <varlistentry>
-      <term><option>/unpacker</option></term>
+      <term><option>/unpacker <replaceable>plugin pipeline</replaceable></option></term>
       <listitem>
-        <para>TBD</para>
+        <para>
+Specifies the plugin pipeline for the Unpacker plugin.  Example:
+<option>/unpacker "SortAscending|SelectLines 1-10"</option></para>
       </listitem>
     </varlistentry>
 
     <varlistentry>
-      <term><option>/prediffer</option></term>
+      <term><option>/prediffer <replaceable>plugin pipeline</replaceable></option></term>
       <listitem>
-        <para>TBD</para>
+        <para>
+Specifies the plugin pipeline for the Prediffer plugin.  Example:
+<option>/prediffer "IgnoreColumns 1-10"</option></para>
       </listitem>
     </varlistentry>
 
     <varlistentry>
-      <term><option>/cp</option></term>
+      <term><option>/cp <replaceable>codepage</replaceable></option></term>
       <listitem>
-        <para>TBD</para>
+        <para>
+Specifies the codepage to use for file comparison.  Example: <option>/cp
+65001</option></para>
       </listitem>
     </varlistentry>
 
@@ -523,9 +583,22 @@ WorkingCopy</userinput>. השתמש בסימני ציטוט סביב תיאור�
     </varlistentry>
 
     <varlistentry>
-      <term><option>/cfg</option></term>
+      <term><option>/cfg <replaceable>name=value</replaceable></option></term>
       <listitem>
-        <para>TBD</para>
+        <para>
+Sets a configuration value in the WinMerge registry or INI file.</para>
+        <para>
+Example: <option>/cfg Settings/DiffAlgorithm=3</option></para>
+        <para>
+If the section name is unambiguous and does not conflict with other setting
+names, it can be omitted:</para>
+        <para>
+<option>/cfg DiffAlgo=3</option></para>
+        <para>
+Note: This entry does not explain which configuration names are available.
+For a list of settings, refer to
+<filename>HKEY_CURRENT_USER\Software\Thingamahoochie\WinMerge</filename> in
+regedit.</para>
       </listitem>
     </varlistentry>
 
@@ -600,9 +673,38 @@ class="directory">C:\Folder2</filename> <emphasis>לא</emphasis> מכילה ק�
     </varlistentry>
 
     <varlistentry>
-      <term><option>/or</option></term>
+      <term><option>/or <replaceable>outputpath</replaceable></option></term>
       <listitem>
-        <para>TBD</para>
+        <para>
+Outputs a comparison report for files or folders.  Example:
+<option>WinMergeU path1 path2 /or c:\tmp\report.html</option></para>
+        <para>It is often useful to combine this option with:</para>
+        <itemizedlist>
+          <listitem><para><option>/noninteractive</option> - exits WinMerge after producing the
+report.</para></listitem>
+          <listitem><para><option>/minimize</option> - starts WinMerge in minimized state.</para></listitem>
+          <listitem><para><option>/noprefs</option> - ignores the current preferences and uses default
+settings.  Any changes made with <option>/cfg</option> will then be
+temporary and not saved.</para></listitem>
+        </itemizedlist>
+        <para>
+The following <option>/cfg</option> settings can also be useful (parameter
+names may change in the future):</para>
+        <para>For file comparisons:</para>
+        <itemizedlist>
+          <listitem><para><option>/cfg Settings/DiffContextV2=0</option> - hides matching lines in the
+report (equivalent to View -> Diff Context -> 0 Lines).</para></listitem>
+          <listitem><para><option>/cfg Settings/ViewLineNumbers=1</option> - outputs line numbers (set
+to 0 to disable).</para></listitem>
+        </itemizedlist>
+        <para>For folder comparisons:</para>
+        <itemizedlist>
+          <listitem><para><option>/cfg Settings/DirViewExpandSubdirs=1</option> - automatically expand
+all subfolders.</para></listitem>
+          <listitem><para><option>/cfg ReportFiles/ReportType=2</option> - report style: Simple HTML.</para></listitem>
+          <listitem><para><option>/cfg ReportFiles/IncludeFileCmpReport=1</option> - include file
+comparison reports.</para></listitem>
+        </itemizedlist>
       </listitem>
     </varlistentry>
 
