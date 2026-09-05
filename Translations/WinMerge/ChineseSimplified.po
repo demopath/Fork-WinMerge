@@ -3058,13 +3058,13 @@ msgstr "行状态(&S)"
 #: Merge.rc:1912 Merge.rc:1996 Merge.rc:2874 Merge.rc:3044 Merge.rc:3085
 #: Merge.rc:5067
 msgid "Different"
-msgstr "不同"
+msgstr " "
 
 #. IDS_IDENTICAL
 #: Merge.rc:1913 Merge.rc:1997 Merge.rc:2873 Merge.rc:3063 Merge.rc:3124
 #: Merge.rc:5057
 msgid "Identical"
-msgstr "完全相同"
+msgstr " "
 
 #. IDR_POPUP_LINEFILTERMENU, ID_FILTERMENU_LINE_TRIVIAL
 #: Merge.rc:1914 Merge.rc:1998
@@ -6866,12 +6866,12 @@ msgstr "文件夹不同"
 #. IDS_LEFTONLY
 #: Merge.rc:5061
 msgid "Left Only"
-msgstr "只存在左侧"
+msgstr "左侧                    "
 
 #. IDS_RIGHTONLY
 #: Merge.rc:5062
 msgid "Right Only"
-msgstr "只存在右侧"
+msgstr "                    右侧"
 
 #. IDS_MIDDLEONLY
 #: Merge.rc:5063
@@ -6901,7 +6901,7 @@ msgstr "错误"
 #. IDS_TEXT_FILES_SAME
 #: Merge.rc:5069
 msgid "Text files are identical"
-msgstr "文本文件完全相同"
+msgstr " "
 
 #. IDS_LEFTONLY_DIFF
 #: Merge.rc:5070
@@ -6926,7 +6926,7 @@ msgstr " （路径不同）"
 #. IDS_TEXT_FILES_DIFF
 #: Merge.rc:5074
 msgid "Text files are different"
-msgstr "文本文件不同"
+msgstr " "
 
 #. IDS_IMAGE_FILES_SAME
 #: Merge.rc:5075
